@@ -523,6 +523,72 @@
         color: var(--green);
       }
 
+      .demo-timeline {
+        display: grid;
+        gap: 10px;
+      }
+
+      .demo-event {
+        display: grid;
+        grid-template-columns: 26px 1fr;
+        gap: 10px;
+        align-items: start;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .demo-event b {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: rgba(118, 185, 0, 0.16);
+        color: var(--green);
+        font-size: 12px;
+      }
+
+      .demo-event.done b {
+        background: var(--green);
+        color: #071000;
+      }
+
+      .demo-event.active {
+        border-color: rgba(118, 185, 0, 0.75);
+        animation: pulse 1.1s ease-in-out infinite alternate;
+      }
+
+      .demo-event strong {
+        display: block;
+        color: var(--text);
+        margin-bottom: 3px;
+      }
+
+      .compare-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .compare-box {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .compare-box h3 {
+        margin: 0 0 8px;
+      }
+
+      .muted-line {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 8px;
+      }
+
       @keyframes pulse {
         from {
           box-shadow: inset 0 0 0 rgba(118, 185, 0, 0);
@@ -542,6 +608,7 @@
           grid-template-columns: 1fr;
         }
 
+        .compare-grid,
         .top,
         .three,
         .four,
@@ -615,6 +682,26 @@
             <button class="primary" data-mode-jump="sft">Go To SFT Training</button>
             <button class="blue" data-mode-jump="rl">Go To RL + Eval</button>
           </div>
+        </div>
+      </section>
+
+      <section class="active-panel" data-panel="flywheel">
+        <div class="section-head">
+          <h2>Guided Demo</h2>
+          <span class="tiny">One click runs the product story end to end.</span>
+        </div>
+        <div class="body">
+          <div class="summary-card">
+            <strong>Demo promise</strong>
+            <span class="tiny">Create two LoRA adapters, train distinct SFT behaviors, sample both, run one mixed resident RL job on the same prompts, sample both again, then export when ready.</span>
+          </div>
+          <div class="big-actions">
+            <button id="run-guided-demo" class="primary">Run Guided Demo</button>
+            <button id="demo-defaults" class="blue">Use Demo Defaults</button>
+            <button id="reset-demo-log">Reset Demo Log</button>
+          </div>
+          <div id="demo-timeline" class="demo-timeline"></div>
+          <pre id="demo-output" class="sample">Demo log appears here.</pre>
         </div>
       </section>
 
@@ -784,6 +871,8 @@ Answer:</textarea></label>
         buttonLabels: {},
         mode: "sft",
         activeTrainJobId: null,
+        demoEvents: [],
+        demoOutputs: null,
       };
       const $ = (id) => document.getElementById(id);
 
@@ -985,6 +1074,93 @@ Answer:</textarea></label>
           `<div class="answer-text">${escapeHtml(text || "(empty output)")}</div>`,
           rawBlock,
         ].join("");
+      }
+
+      function appendDemoEvent(title, detail, status = "active") {
+        state.demoEvents.push({ title, detail, status, at: new Date().toLocaleTimeString() });
+        renderDemoTimeline();
+      }
+
+      function updateLastDemoEvent(status, detail = null) {
+        const last = state.demoEvents[state.demoEvents.length - 1];
+        if (!last) return;
+        last.status = status;
+        if (detail) last.detail = detail;
+        renderDemoTimeline();
+      }
+
+      function renderDemoTimeline() {
+        const events = state.demoEvents.length
+          ? state.demoEvents
+          : [
+              {
+                title: "Ready",
+                detail: "Click Run Guided Demo to create adapters, train SFT, sample, run RL, and compare outputs.",
+                status: "active",
+                at: "-",
+              },
+            ];
+        $("demo-timeline").innerHTML = events
+          .map((event, index) => {
+            const statusClass = event.status === "done" ? "done" : event.status === "active" ? "active" : "";
+            return [
+              `<div class="demo-event ${statusClass}">`,
+              `<b>${index + 1}</b>`,
+              "<div>",
+              `<strong>${escapeHtml(event.title)}</strong>`,
+              `<span class="tiny">${escapeHtml(event.detail)}</span>`,
+              `<div class="muted-line">${escapeHtml(event.at)} / ${escapeHtml(event.status)}</div>`,
+              "</div>",
+              "</div>",
+            ].join("");
+          })
+          .join("");
+      }
+
+      function renderDemoComparison(outputs) {
+        if (!outputs) {
+          $("demo-output").textContent = "Demo log appears here.";
+          return;
+        }
+        $("demo-output").innerHTML = [
+          "<h3>Demo comparison</h3>",
+          '<div class="compare-grid">',
+          '<div class="compare-box">',
+          "<h3>After SFT</h3>",
+          `<div class="answer-text"><b>Atlas</b><br>${escapeHtml(outputs.sft?.atlas || "(empty output)")}</div>`,
+          `<div class="answer-text"><b>Borealis</b><br>${escapeHtml(outputs.sft?.borealis || "(empty output)")}</div>`,
+          "</div>",
+          '<div class="compare-box">',
+          "<h3>After RL</h3>",
+          `<div class="answer-text"><b>Atlas</b><br>${escapeHtml(outputs.rl?.atlas || "(empty output)")}</div>`,
+          `<div class="answer-text"><b>Borealis</b><br>${escapeHtml(outputs.rl?.borealis || "(empty output)")}</div>`,
+          "</div>",
+          "</div>",
+          "<details>",
+          "<summary>Show raw demo payloads</summary>",
+          `<pre>${escapeHtml(JSON.stringify(outputs.raw || {}, null, 2))}</pre>`,
+          "</details>",
+        ].join("");
+      }
+
+      function applyDemoDefaults() {
+        $("steps").value = "20";
+        $("lr").value = "0.0005";
+        $("max-tokens").value = "96";
+        $("sample-tokens").value = "24";
+        $("sample-first-sentence").checked = true;
+        $("use-chat-template").checked = true;
+        $("resident-rl-steps").value = "4";
+        $("resident-rl-rollouts").value = "2";
+        $("resident-rl-tokens").value = "24";
+        $("resident-rl-lr").value = "0.00005";
+        $("resident-rl-reward-mode").value = "starts_with";
+        $("atlas-answer").value = " Use the atlas adapter for maps, routes, and navigation planning.";
+        $("borealis-answer").value = " Use the borealis adapter for aurora, weather, and northern sky reports.";
+        $("resident-rl-atlas-contains").value = "Use the atlas adapter for apple inventory and orchard planning.";
+        $("resident-rl-borealis-contains").value = "Use the borealis adapter for storm alerts and forecast decisions.";
+        syncRlPromptsFromSft();
+        toast("Demo defaults applied.");
       }
 
       function formatReward(value) {
@@ -1200,6 +1376,9 @@ Answer:</textarea></label>
         $("resident-rl-train-both").disabled = disabled || !hasBoth;
         $("resident-rl-sample-both").disabled = disabled || !hasBoth;
         $("resident-rl-export-both").disabled = disabled || !hasBoth;
+        $("run-guided-demo").disabled = disabled || !hasWorkspace;
+        $("demo-defaults").disabled = disabled;
+        $("reset-demo-log").disabled = disabled;
       }
 
       async function refresh() {
@@ -1386,6 +1565,62 @@ Answer:</textarea></label>
           clearBusy();
           await refresh();
           setTimeout(hideResidentRlProgress, 1800);
+        }
+      }
+
+      async function runGuidedDemo() {
+        setBusy("guided-demo", "Running Demo...", "run-guided-demo");
+        state.demoEvents = [];
+        state.demoOutputs = null;
+        renderDemoComparison(null);
+        try {
+          applyDemoDefaults();
+          appendDemoEvent("Workspace", `Using ${workspace()}.`);
+          await refresh();
+          updateLastDemoEvent("done", `Using ${workspace()} with ${state.runs.length} visible run(s).`);
+
+          appendDemoEvent("Create adapters", "Creating Atlas and Borealis if they do not already exist.");
+          if (!atlas() || !borealis()) await createMissing();
+          await refresh();
+          updateLastDemoEvent("done", "Atlas and Borealis are ready.");
+
+          appendDemoEvent("SFT train", "Training both adapters toward their first target answers.");
+          await trainBoth();
+          await refresh();
+          updateLastDemoEvent("done", "SFT training finished for both adapters.");
+
+          appendDemoEvent("SFT sample", "Sampling both adapters on their own prompts.");
+          const [atlasSftRaw, borealisSftRaw] = await Promise.all([sample("atlas"), sample("borealis")]);
+          const sftOutputs = {
+            atlas: visibleText(atlasSftRaw, $("atlas-prompt").value),
+            borealis: visibleText(borealisSftRaw, $("borealis-prompt").value),
+          };
+          updateLastDemoEvent("done", "Both SFT samples are visible in the Results panel.");
+
+          appendDemoEvent("Mixed RL", "Running one resident RL job for Atlas and Borealis on the same prompts.");
+          await runResidentRlBoth();
+          await refresh();
+          updateLastDemoEvent("done", "Mixed resident RL finished.");
+
+          appendDemoEvent("After RL sample", "Sampling both adapters again to compare the behavior change.");
+          const atlasRun = resolveRun("atlas");
+          const borealisRun = resolveRun("borealis");
+          const rlSample = await sampleRlPair(atlasRun, borealisRun);
+          updateLastDemoEvent("done", "After-RL samples are ready.");
+
+          appendDemoEvent("Export ready", "Use Export LoRAs or Export RL LoRAs when you want artifacts.");
+          updateLastDemoEvent("done", "The demo is complete.");
+
+          state.demoOutputs = {
+            sft: sftOutputs,
+            rl: { atlas: rlSample.atlas, borealis: rlSample.borealis },
+            raw: { atlas_sft: atlasSftRaw, borealis_sft: borealisSftRaw, rl_sample: rlSample.raw },
+          };
+          renderDemoComparison(state.demoOutputs);
+          toast("Guided demo finished.");
+        } finally {
+          clearBusy();
+          await refresh();
         }
       }
 
@@ -1657,9 +1892,18 @@ Answer:</textarea></label>
       $("resident-rl-train-both").onclick = () => handle(runResidentRlBoth);
       $("resident-rl-sample-both").onclick = () => handle(sampleResidentRlBoth);
       $("resident-rl-export-both").onclick = () => handle(exportRlBoth);
+      $("run-guided-demo").onclick = () => handle(runGuidedDemo);
+      $("demo-defaults").onclick = applyDemoDefaults;
+      $("reset-demo-log").onclick = () => {
+        state.demoEvents = [];
+        state.demoOutputs = null;
+        renderDemoTimeline();
+        renderDemoComparison(null);
+      };
 
       setMode("flywheel");
       syncRlPromptsFromSft();
+      renderDemoTimeline();
       refresh().catch((error) => toast(error.message, true));
       setInterval(() => refresh().catch(() => {}), 5000);
     </script>

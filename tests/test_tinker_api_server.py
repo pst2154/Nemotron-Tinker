@@ -1224,6 +1224,51 @@ def test_resident_rl_reward_scores_completion_not_prompt(monkeypatch, tmp_path):
     assert response["rollouts"][0]["advantage"] == -0.5
 
 
+def test_resident_rl_mixed_trains_two_runs_in_one_job(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
+    app = server.create_app(base_model="fake-model", scratch_dir=tmp_path)
+    client = fastapi_testclient.TestClient(app)
+    atlas = client.post("/runs", json={"name": "atlas"}).json()
+    borealis = client.post("/runs", json={"name": "borealis"}).json()
+
+    response = client.post(
+        "/resident_rl",
+        json={
+            "runs": [
+                {
+                    "run_id": atlas["run_id"],
+                    "prompts": ["say atlas"],
+                    "reward_contains": atlas["adapter_id"],
+                },
+                {
+                    "run_id": borealis["run_id"],
+                    "prompts": ["say borealis"],
+                    "reward_contains": borealis["adapter_id"],
+                },
+            ],
+            "rollouts_per_prompt": 2,
+            "max_new_tokens": 4,
+            "steps": 3,
+            "learning_rate": 0.001,
+            "microbatch_size": 1,
+            "loss_fn": "importance_sampling",
+            "run_async": False,
+        },
+    ).json()
+
+    assert response["train_job"]["status"] == "succeeded"
+    assert response["train_job"]["run_ids"] == [atlas["run_id"], borealis["run_id"]]
+    assert response["train_job"]["progress"]["request_ref"]["num_runs"] == 2
+    assert response["train_job"]["progress"]["request_ref"]["loss_fn"] == "importance_sampling"
+    assert response["rollout_count"] == 4
+    assert response["reward_summaries"][atlas["run_id"]]["mean"] == 1.0
+    assert response["reward_summaries"][borealis["run_id"]]["mean"] == 1.0
+    assert len(response["rollouts_by_run"][atlas["run_id"]]) == 2
+    assert len(response["rollouts_by_run"][borealis["run_id"]]) == 2
+    assert response["train_response"]["runs"][atlas["run_id"]]["optimizer_steps"] == 3
+    assert response["train_response"]["runs"][borealis["run_id"]]["optimizer_steps"] == 3
+
+
 def test_mixed_lora_server_submits_async_train_job(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
     app = server.create_app(base_model="fake-model", scratch_dir=tmp_path)

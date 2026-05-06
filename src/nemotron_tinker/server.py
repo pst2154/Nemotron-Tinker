@@ -219,6 +219,36 @@ class ResidentRLTrainRequest(BaseModel):
     idempotency_key: Optional[str] = None
 
 
+class ResidentRLRunRequest(BaseModel):
+    """Resident RL settings for one run in a mixed RL update."""
+
+    run_id: str
+    prompts: list[str]
+    reward_mode: ResidentRLRewardMode = "contains"
+    reward_contains: Optional[str] = None
+    save_name: Optional[str] = None
+
+
+class ResidentRLMixedTrainRequest(BaseModel):
+    """Collect rollouts for multiple resident LoRAs and train them in one mixed job."""
+
+    runs: list[ResidentRLRunRequest]
+    rollouts_per_prompt: int = 1
+    max_new_tokens: int = 32
+    temperature: float = 0.8
+    top_p: float = 0.95
+    reward_baseline: Optional[float] = 0.0
+    reward_scale: float = 1.0
+    steps: int = 1
+    learning_rate: float = 2e-5
+    microbatch_size: Optional[int] = None
+    loss_fn: str = "importance_sampling"
+    loss_fn_config: dict[str, float] = Field(default_factory=dict)
+    run_async: bool = True
+    tenant_id: Optional[str] = None
+    idempotency_key: Optional[str] = None
+
+
 class RunRecord(BaseModel):
     """In-memory run metadata."""
 
@@ -377,6 +407,17 @@ class ResidentRLTrainResponse(BaseModel):
     rollout_count: int
     reward_summary: dict[str, float]
     rollouts: list[dict[str, Any]]
+
+
+class ResidentRLMixedTrainResponse(BaseModel):
+    """Resident RL response for one mixed train_steps job over multiple adapters."""
+
+    runs: dict[str, RunRecord]
+    train_job: JobRecord
+    train_response: Optional[dict[str, Any]] = None
+    rollout_count: int
+    reward_summaries: dict[str, dict[str, float]]
+    rollouts_by_run: dict[str, list[dict[str, Any]]]
 
 
 class ForwardBackwardResponse(BaseModel):
@@ -2529,21 +2570,10 @@ def create_app(
         request = _model_with_update(request, tenant_id=resolve_tenant_id(request.tenant_id, http_request))
         return submit_train_steps_request(request, http_request)
 
-    @app.post("/runs/{run_id}/resident_rl", response_model=ResidentRLTrainResponse)
-    def resident_rl_train(
-        run_id: str, request: ResidentRLTrainRequest, http_request: Request
-    ) -> ResidentRLTrainResponse:
-        record = get_authorized_record(run_id, http_request)
-        enforce_tenant_rate_limit(record.tenant_id, "resident_rl")
-        if not request.prompts:
-            raise HTTPException(status_code=400, detail="Resident RL requires at least one prompt")
-        if request.rollouts_per_prompt <= 0:
-            raise HTTPException(status_code=400, detail="rollouts_per_prompt must be positive")
-        if request.steps <= 0:
-            raise HTTPException(status_code=400, detail="steps must be positive")
-        if request.loss_fn == "cross_entropy":
-            raise HTTPException(status_code=400, detail="Resident RL requires an RL loss_fn, not cross_entropy")
-
+    def collect_resident_rl_rollouts(
+        run_id: str,
+        request: ResidentRLTrainRequest,
+    ) -> tuple[list[dict[str, Any]], list[DatumRequest], dict[str, float]]:
         client = get_run(run_id)
         sampling = SamplingParams(
             max_new_tokens=request.max_new_tokens,
@@ -2591,6 +2621,31 @@ def create_app(
         ]
         for row, datum in zip(rollouts, datums):
             row["advantage"] = datum.loss_fn_inputs["advantages"][-1] if datum.loss_fn_inputs["advantages"] else 0.0
+        reward_summary = {
+            "count": float(len(rewards)),
+            "mean": sum(rewards) / max(len(rewards), 1),
+            "min": min(rewards) if rewards else 0.0,
+            "max": max(rewards) if rewards else 0.0,
+            "baseline": float(baseline),
+        }
+        return rollouts, datums, reward_summary
+
+    @app.post("/runs/{run_id}/resident_rl", response_model=ResidentRLTrainResponse)
+    def resident_rl_train(
+        run_id: str, request: ResidentRLTrainRequest, http_request: Request
+    ) -> ResidentRLTrainResponse:
+        record = get_authorized_record(run_id, http_request)
+        enforce_tenant_rate_limit(record.tenant_id, "resident_rl")
+        if not request.prompts:
+            raise HTTPException(status_code=400, detail="Resident RL requires at least one prompt")
+        if request.rollouts_per_prompt <= 0:
+            raise HTTPException(status_code=400, detail="rollouts_per_prompt must be positive")
+        if request.steps <= 0:
+            raise HTTPException(status_code=400, detail="steps must be positive")
+        if request.loss_fn == "cross_entropy":
+            raise HTTPException(status_code=400, detail="Resident RL requires an RL loss_fn, not cross_entropy")
+
+        rollouts, datums, reward_summary = collect_resident_rl_rollouts(run_id, request)
 
         train_request = TrainStepsRequest(
             batches={run_id: datums},
@@ -2606,13 +2661,6 @@ def create_app(
         )
         train_response = submit_train_steps_request(train_request)
         train_job = train_response.job
-        reward_summary = {
-            "count": float(len(rewards)),
-            "mean": sum(rewards) / max(len(rewards), 1),
-            "min": min(rewards) if rewards else 0.0,
-            "max": max(rewards) if rewards else 0.0,
-            "baseline": float(baseline),
-        }
         record_worker_operation(
             "resident_rl",
             [run_id],
@@ -2630,6 +2678,90 @@ def create_app(
             rollout_count=len(rollouts),
             reward_summary=reward_summary,
             rollouts=rollouts,
+        )
+
+    @app.post("/resident_rl", response_model=ResidentRLMixedTrainResponse)
+    def resident_rl_mixed_train(
+        request: ResidentRLMixedTrainRequest, http_request: Request
+    ) -> ResidentRLMixedTrainResponse:
+        if not request.runs:
+            raise HTTPException(status_code=400, detail="Resident RL requires at least one run")
+        if request.rollouts_per_prompt <= 0:
+            raise HTTPException(status_code=400, detail="rollouts_per_prompt must be positive")
+        if request.steps <= 0:
+            raise HTTPException(status_code=400, detail="steps must be positive")
+        if request.loss_fn == "cross_entropy":
+            raise HTTPException(status_code=400, detail="Resident RL requires an RL loss_fn, not cross_entropy")
+
+        run_ids = [run_request.run_id for run_request in request.runs]
+        if len(set(run_ids)) != len(run_ids):
+            raise HTTPException(status_code=400, detail="Resident RL run_ids must be unique")
+        records = {run_id: get_authorized_record(run_id, http_request) for run_id in run_ids}
+        tenant_id = tenant_for_runs(run_ids, resolve_tenant_id(request.tenant_id, http_request))
+        enforce_tenant_rate_limit(tenant_id, "resident_rl")
+
+        batches: dict[str, list[DatumRequest]] = {}
+        rollouts_by_run: dict[str, list[dict[str, Any]]] = {}
+        reward_summaries: dict[str, dict[str, float]] = {}
+        save_names: dict[str, str] = {}
+        for run_request in request.runs:
+            if not run_request.prompts:
+                raise HTTPException(status_code=400, detail=f"Resident RL run {run_request.run_id} needs prompts")
+            single_request = ResidentRLTrainRequest(
+                prompts=run_request.prompts,
+                rollouts_per_prompt=request.rollouts_per_prompt,
+                max_new_tokens=request.max_new_tokens,
+                temperature=request.temperature,
+                top_p=request.top_p,
+                reward_mode=run_request.reward_mode,
+                reward_contains=run_request.reward_contains,
+                reward_baseline=request.reward_baseline,
+                reward_scale=request.reward_scale,
+                steps=request.steps,
+                learning_rate=request.learning_rate,
+                microbatch_size=request.microbatch_size,
+                loss_fn=request.loss_fn,
+                loss_fn_config=request.loss_fn_config,
+                save_name=run_request.save_name,
+                run_async=request.run_async,
+            )
+            rollouts, datums, reward_summary = collect_resident_rl_rollouts(run_request.run_id, single_request)
+            batches[run_request.run_id] = datums
+            rollouts_by_run[run_request.run_id] = rollouts
+            reward_summaries[run_request.run_id] = reward_summary
+            if run_request.save_name:
+                save_names[run_request.run_id] = run_request.save_name
+
+        train_request = TrainStepsRequest(
+            batches=batches,
+            steps=request.steps,
+            learning_rate=request.learning_rate,
+            microbatch_size=request.microbatch_size,
+            loss_fn=request.loss_fn,
+            loss_fn_config=request.loss_fn_config,
+            save_names=save_names,
+            run_async=request.run_async,
+            tenant_id=tenant_id,
+            idempotency_key=request.idempotency_key,
+        )
+        train_response = submit_train_steps_request(train_request)
+        train_job = train_response.job
+        record_worker_operation(
+            "resident_rl_mixed",
+            run_ids,
+            {
+                "train_job_id": train_job.job_id,
+                "rollout_count": sum(len(rollouts) for rollouts in rollouts_by_run.values()),
+                "loss_fn": request.loss_fn,
+            },
+        )
+        return ResidentRLMixedTrainResponse(
+            runs={run_id: records[run_id] for run_id in run_ids},
+            train_job=train_job,
+            train_response=_model_to_dict(train_response) if isinstance(train_response, TrainStepsResponse) else None,
+            rollout_count=sum(len(rollouts) for rollouts in rollouts_by_run.values()),
+            reward_summaries=reward_summaries,
+            rollouts_by_run=rollouts_by_run,
         )
 
     @app.post("/runs/{run_id}/forward_backward")

@@ -652,9 +652,9 @@ Answer:</textarea></label>
         <div class="body">
           <div class="steps">
             <div class="step active"><b>1</b>Goal: choose the exact behavior each adapter should prefer.</div>
-            <div class="step"><b>2</b>Attempt: sample the current resident adapter on that prompt.</div>
-            <div class="step"><b>3</b>Reward: give credit only when the attempt contains the target text.</div>
-            <div class="step"><b>4</b>Train and sample: reinforce the same LoRA, then test it again.</div>
+            <div class="step"><b>2</b>Attempt: sample both resident adapters on their prompts.</div>
+            <div class="step"><b>3</b>Reward: score each adapter's completion against its target text.</div>
+            <div class="step"><b>4</b>Train together: submit one mixed RL job, then sample both again.</div>
           </div>
           <div class="summary-card">
             <strong>What this is showing</strong>
@@ -665,54 +665,28 @@ Answer:</textarea></label>
 
       <section data-panel="rl">
         <div class="section-head">
-          <h2>Try One Adapter</h2>
-          <span class="tiny">A rollout is just an attempt from the current adapter before or after RL.</span>
-        </div>
-        <div class="body">
-          <div class="two">
-            <label>Resident model / run name<input id="gym-model" value="atlas" /></label>
-            <label>Max output tokens<input id="gym-max-output" type="number" min="1" value="16" /></label>
-          </div>
-          <label>Prompt<textarea id="gym-prompt">Say exactly: use atlas for apples</textarea></label>
-          <div class="big-actions">
-            <button id="gym-sample" class="blue">Sample One Attempt</button>
-            <button id="gym-copy-note">Show Payload Shape</button>
-          </div>
-          <pre id="gym-output" class="sample">A sampled attempt appears here.</pre>
-        </div>
-      </section>
-
-      <section data-panel="rl">
-        <div class="section-head">
-          <h2>Train Toward Goal</h2>
-          <span class="tiny">Reward matching attempts and reinforce the same resident adapters.</span>
+          <h2>Train Both Toward Goals</h2>
+          <span class="tiny">Collect both adapters' attempts, then train them in one mixed resident RL job.</span>
         </div>
         <div class="body">
           <div class="summary-card">
             <strong>How to read this</strong>
-            <span class="tiny">Prompt is the challenge. Reward contains is the target text. Training samples attempts, rewards matches, and updates the same LoRA adapter.</span>
+            <span class="tiny">Prompt is the challenge. Target answer is the reward text. The service samples both adapters first, then sends one mixed RL train_steps job for both LoRAs.</span>
           </div>
           <div class="adapters">
             <div class="adapter ready">
               <h3>Atlas RL</h3>
               <label>Run name or id<input id="resident-rl-atlas-run" value="atlas" /></label>
-              <label>Reward contains<input id="resident-rl-atlas-contains" value="use atlas for apples" /></label>
+              <label>Target answer<input id="resident-rl-atlas-contains" value="use atlas for apples" /></label>
               <label>Prompt<textarea id="resident-rl-atlas-prompt">Say exactly: use atlas for apples</textarea></label>
             </div>
             <div class="adapter ready">
               <h3>Borealis RL</h3>
               <label>Run name or id<input id="resident-rl-borealis-run" value="borealis" /></label>
-              <label>Reward contains<input id="resident-rl-borealis-contains" value="use borealis for weather" /></label>
+              <label>Target answer<input id="resident-rl-borealis-contains" value="use borealis for weather" /></label>
               <label>Prompt<textarea id="resident-rl-borealis-prompt">Say exactly: use borealis for weather</textarea></label>
             </div>
           </div>
-          <div class="three">
-            <label>Run name or id<input id="resident-rl-run" value="atlas" /></label>
-            <label>Reward<select id="resident-rl-reward"><option value="contains">contains text</option><option value="concise">concise</option><option value="integer">integer only</option><option value="nonempty">non-empty</option></select></label>
-            <label>Contains<input id="resident-rl-contains" value="atlas" /></label>
-          </div>
-          <label>Prompts<textarea id="resident-rl-prompts">Say exactly: use atlas for apples
-Say exactly: use atlas for apples</textarea></label>
           <div class="four">
             <label>RL steps<input id="resident-rl-steps" type="number" min="1" value="4" /></label>
             <label>Rollouts/prompt<input id="resident-rl-rollouts" type="number" min="1" value="1" /></label>
@@ -721,9 +695,7 @@ Say exactly: use atlas for apples</textarea></label>
           </div>
           <div class="big-actions">
             <button id="resident-rl-sample-both" class="blue">1. Sample Both Before/After</button>
-            <button id="resident-rl-train-both" class="primary">2. Train Both Toward Goals</button>
-            <button id="resident-rl-sample" class="blue">Sample One</button>
-            <button id="resident-rl-train" class="primary">Train One</button>
+            <button id="resident-rl-train-both" class="primary">2. Train Both Together</button>
           </div>
           <div id="resident-rl-progress" class="progress-wrap">
             <div class="progress-bar"><div id="resident-rl-progress-fill" class="progress-fill"></div></div>
@@ -884,6 +856,10 @@ Say exactly: use atlas for apples</textarea></label>
 
         residentRl(runId, payload) {
           return this.call(`/runs/${runId}/resident_rl`, { method: "POST", body: JSON.stringify(payload) });
+        }
+
+        residentRlMixed(payload) {
+          return this.call("/resident_rl", { method: "POST", body: JSON.stringify(payload) });
         }
 
         save(runId, name) {
@@ -1115,10 +1091,6 @@ Say exactly: use atlas for apples</textarea></label>
         $("detach-both").disabled = disabled || !hasBoth;
         $("resident-rl-train-both").disabled = disabled || !hasBoth;
         $("resident-rl-sample-both").disabled = disabled || !hasBoth;
-        $("resident-rl-train").disabled = disabled;
-        $("resident-rl-sample").disabled = disabled;
-        $("gym-sample").disabled = disabled;
-        $("gym-copy-note").disabled = disabled;
       }
 
       async function refresh() {
@@ -1197,86 +1169,78 @@ Say exactly: use atlas for apples</textarea></label>
         return { ...response, train_job: job };
       }
 
-      async function runResidentRl() {
-        setBusy("resident-rl", "Training...", "resident-rl-train");
-        try {
-          await refresh();
-          const prompts = $("resident-rl-prompts").value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-          const response = await trainResidentRlRun({
-            runValue: $("resident-rl-run").value,
-            prompts,
-            rewardContains: $("resident-rl-contains").value.trim() || null,
-            outputLabel: "Resident RL",
-          });
-          toast("Resident RL finished.");
-          renderOutputPanel(
-            "resident-rl-output",
-            "Resident RL finished",
-            `Reward mean: ${response.reward_summary.mean}. Job: ${response.train_job.status}.`,
-            response,
-          );
-        } finally {
-          clearBusy();
-          await refresh();
-          setTimeout(hideResidentRlProgress, 1800);
-        }
-      }
-
       async function runResidentRlBoth() {
-        setBusy("resident-rl-both", "Training Both...", "resident-rl-train-both");
+        setBusy("resident-rl-both", "Training Together...", "resident-rl-train-both");
         try {
           await refresh();
           const steps = Number($("resident-rl-steps").value);
-          const atlasResult = await trainResidentRlRun({
-            runValue: $("resident-rl-atlas-run").value,
-            prompts: [$("resident-rl-atlas-prompt").value.trim()],
-            rewardContains: $("resident-rl-atlas-contains").value.trim(),
-            outputLabel: "Atlas RL",
-            progressOffset: 0,
-            progressTotal: steps * 2,
+          const atlasRun = resolveRun($("resident-rl-atlas-run").value);
+          const borealisRun = resolveRun($("resident-rl-borealis-run").value);
+          const response = await sdk.residentRlMixed({
+            runs: [
+              {
+                run_id: atlasRun.run_id,
+                prompts: [$("resident-rl-atlas-prompt").value.trim()],
+                reward_mode: "contains",
+                reward_contains: $("resident-rl-atlas-contains").value.trim(),
+              },
+              {
+                run_id: borealisRun.run_id,
+                prompts: [$("resident-rl-borealis-prompt").value.trim()],
+                reward_mode: "contains",
+                reward_contains: $("resident-rl-borealis-contains").value.trim(),
+              },
+            ],
+            reward_baseline: 0.0,
+            steps,
+            rollouts_per_prompt: Number($("resident-rl-rollouts").value),
+            max_new_tokens: Number($("resident-rl-tokens").value),
+            learning_rate: Number($("resident-rl-lr").value),
+            microbatch_size: 1,
+            loss_fn: "importance_sampling",
+            loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
+            run_async: true,
           });
-          const borealisResult = await trainResidentRlRun({
-            runValue: $("resident-rl-borealis-run").value,
-            prompts: [$("resident-rl-borealis-prompt").value.trim()],
-            rewardContains: $("resident-rl-borealis-contains").value.trim(),
-            outputLabel: "Borealis RL",
-            progressOffset: steps,
-            progressTotal: steps * 2,
-          });
-          setResidentRlProgress(steps * 2, steps * 2, "succeeded", "both adapters done");
+          let job = response.train_job;
+          renderOutputPanel(
+            "resident-rl-output",
+            "Mixed Resident RL",
+            `Collected ${response.rollout_count} rollout(s) across Atlas and Borealis. Training both adapters in one job...`,
+            response,
+          );
+          raw(response);
+          while (!["succeeded", "failed", "canceled"].includes(job.status)) {
+            const progress = job.progress || {};
+            setResidentRlProgress(
+              progress.step || 0,
+              progress.total_steps || steps,
+              job.status,
+              "one mixed RL train_steps job",
+            );
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            job = await sdk.job(job.job_id);
+            await refresh();
+          }
+          const progress = job.progress || {};
+          setResidentRlProgress(progress.step || steps, progress.total_steps || steps, job.status, "both adapters done");
+          if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
+          const result = { ...response, train_job: job };
           renderOutputPanel(
             "resident-rl-output",
             "Resident RL finished for both",
             [
-              `Atlas reward mean: ${atlasResult.reward_summary.mean}; job: ${atlasResult.train_job.status}.`,
-              `Borealis reward mean: ${borealisResult.reward_summary.mean}; job: ${borealisResult.train_job.status}.`,
+              `Atlas reward mean: ${response.reward_summaries[atlasRun.run_id].mean}.`,
+              `Borealis reward mean: ${response.reward_summaries[borealisRun.run_id].mean}.`,
+              `Shared job: ${job.job_id} (${job.status}).`,
             ].join("\n"),
-            { atlas: atlasResult, borealis: borealisResult },
+            result,
           );
-          raw({ atlas: atlasResult, borealis: borealisResult });
-          toast("Resident RL finished for both adapters.");
+          raw(result);
+          toast("Mixed Resident RL finished for both adapters.");
         } finally {
           clearBusy();
           await refresh();
           setTimeout(hideResidentRlProgress, 1800);
-        }
-      }
-
-      async function sampleResidentRl() {
-        setBusy("resident-sample", "Sampling...", "resident-rl-sample");
-        try {
-          await refresh();
-          const run = resolveRun($("resident-rl-run").value);
-          const prompt = $("resident-rl-prompts").value.split(/\n+/).map((line) => line.trim()).filter(Boolean)[0];
-          if (!prompt) throw new Error("Type at least one Resident RL prompt first.");
-          const result = await sdk.sample(run.run_id, prompt, Number($("resident-rl-tokens").value), false);
-          const text = visibleText(result, prompt);
-          renderOutputPanel("resident-rl-output", `${run.name || run.run_id} output`, text, result);
-          raw(result);
-          toast("Sampled resident run.");
-        } finally {
-          clearBusy();
-          await refresh();
         }
       }
 
@@ -1308,38 +1272,6 @@ Say exactly: use atlas for apples</textarea></label>
           clearBusy();
           await refresh();
         }
-      }
-
-      async function collectGymRollout() {
-        setBusy("gym", "Sampling...", "gym-sample");
-        try {
-          const response = await sdk.openAiResponse(
-            $("gym-model").value.trim() || "atlas",
-            $("gym-prompt").value,
-            Number($("gym-max-output").value),
-          );
-          renderOutputPanel("gym-output", `${response.model || "Adapter"} output`, responseText(response), response);
-          raw(response);
-          toast("Sampled one attempt.");
-        } finally {
-          clearBusy();
-        }
-      }
-
-      function showGymConverterCommand() {
-        $("gym-output").textContent = [
-          "Resident RL payload shape:",
-          "",
-          "{",
-          "  prompts: [\"Say exactly: use atlas for apples\"],",
-          "  reward_mode: \"contains\",",
-          "  reward_contains: \"use atlas for apples\",",
-          "  steps: 4,",
-          "  loss_fn: \"importance_sampling\"",
-          "}",
-          "",
-          "The service samples attempts, scores them, and trains the same resident adapter.",
-        ].join("\n");
       }
 
       async function createMissing() {
@@ -1556,10 +1488,6 @@ Say exactly: use atlas for apples</textarea></label>
       });
       $("resident-rl-train-both").onclick = () => handle(runResidentRlBoth);
       $("resident-rl-sample-both").onclick = () => handle(sampleResidentRlBoth);
-      $("resident-rl-train").onclick = () => handle(runResidentRl);
-      $("resident-rl-sample").onclick = () => handle(sampleResidentRl);
-      $("gym-sample").onclick = () => handle(collectGymRollout);
-      $("gym-copy-note").onclick = showGymConverterCommand;
 
       setMode("flywheel");
       refresh().catch((error) => toast(error.message, true));

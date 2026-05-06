@@ -70,6 +70,17 @@ the target phrase appearing in the prompt should not receive reward by itself.
 Reward modes are intentionally small and inspectable for V1 testing:
 `contains`, `concise`, `integer`, and `nonempty`.
 
+For the normal two-adapter UI path, use the mixed resident endpoint:
+
+```text
+POST /resident_rl
+```
+
+This endpoint samples rollouts for multiple resident adapters, builds one RL
+batch per run, and submits a single mixed `/train_steps` job. The adapters
+still share one resident base model, but they are trained in the same
+server-owned loop instead of one UI request per adapter.
+
 ## Run The RL Recipe
 
 ```bash

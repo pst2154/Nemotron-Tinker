@@ -822,8 +822,8 @@ Answer:</textarea></label>
             <label>Reward mode<select id="resident-rl-reward-mode"><option value="exact">exact</option><option value="starts_with">starts with</option><option value="contains">contains</option><option value="regex">regex</option></select></label>
           </div>
           <div class="big-actions">
-            <button id="resident-rl-sample-both" class="blue">1. Sample SFT Prompts</button>
-            <button id="resident-rl-train-both" class="primary">2. RL Same Prompts</button>
+            <button id="resident-rl-sample-both" class="blue">1. Preview Before RL (No Training)</button>
+            <button id="resident-rl-train-both" class="primary">2. Train RL + Compare Both</button>
             <button id="resident-rl-export-both" class="blue">3. Export RL LoRAs</button>
           </div>
           <div id="resident-rl-progress" class="progress-wrap">
@@ -1511,6 +1511,7 @@ Answer:</textarea></label>
             [`Atlas: ${before.atlas}`, "", `Borealis: ${before.borealis}`].join("\n"),
             before.raw,
           );
+          setResidentRlProgress(0, steps, "collecting", "collecting rollouts and creating the train job");
           await nextPaint();
           const stamp = versionStamp();
           const response = await sdk.residentRlMixed({
@@ -1544,10 +1545,17 @@ Answer:</textarea></label>
           renderOutputPanel(
             "resident-rl-output",
             "Mixed Resident RL",
-            `Collected ${response.rollout_count} rollout(s) across Atlas and Borealis. Training both adapters in one job...`,
+            `Started train job ${job.job_id}. Collected ${response.rollout_count} rollout(s) across Atlas and Borealis. Training both adapters in one job...`,
             response,
           );
           raw(response);
+          const firstProgress = job.progress || {};
+          setResidentRlProgress(
+            firstProgress.step || 0,
+            firstProgress.total_steps || steps,
+            job.status,
+            `train job ${job.job_id}`,
+          );
           while (!["succeeded", "failed", "canceled"].includes(job.status)) {
             const progress = job.progress || {};
             setResidentRlProgress(
@@ -1577,7 +1585,6 @@ Answer:</textarea></label>
         } finally {
           clearBusy();
           await refresh();
-          setTimeout(hideResidentRlProgress, 1800);
         }
       }
 
@@ -1646,12 +1653,18 @@ Answer:</textarea></label>
           const result = await sampleRlPair(atlasRun, borealisRun);
           renderOutputPanel(
             "resident-rl-output",
-            "Resident RL samples",
-            [`Atlas output\n${result.atlas}`, "", `Borealis output\n${result.borealis}`].join("\n"),
+            "Preview only - no RL training started",
+            [
+              "This button only samples the current adapters. To update weights, click Train RL + Compare Both.",
+              "",
+              `Atlas output\n${result.atlas}`,
+              "",
+              `Borealis output\n${result.borealis}`,
+            ].join("\n"),
             result.raw,
           );
           raw(result.raw);
-          toast("Sampled both resident runs.");
+          toast("Previewed both resident runs. No RL job was started.");
         } finally {
           clearBusy();
           await refresh();

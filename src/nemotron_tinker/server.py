@@ -469,9 +469,18 @@ def _apply_chat_template_or_raise(
     if apply_chat_template is None:
         raise HTTPException(status_code=400, detail="Tokenizer does not provide apply_chat_template().")
     try:
-        return apply_chat_template(messages, tokenize=tokenize, add_generation_prompt=add_generation_prompt)
+        output = apply_chat_template(messages, tokenize=tokenize, add_generation_prompt=add_generation_prompt)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Tokenizer chat template failed: {exc}") from exc
+    if not tokenize:
+        return output
+    if hasattr(output, "data") and "input_ids" in output.data:
+        output = output.data["input_ids"]
+    elif isinstance(output, dict) and "input_ids" in output:
+        output = output["input_ids"]
+    if output and isinstance(output[0], list):
+        output = output[0]
+    return list(output)
 
 
 def _sample_prompt_from_request(tokenizer, request: SampleRequest) -> str:

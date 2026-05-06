@@ -1,0 +1,20 @@
+{
+  "description": "Full Nemotron 30B A3B two-adapter RL LoRA workload with sampled policy rollouts.",
+  "kind": "nemotron_rl",
+  "args": {
+    "base_url": "http://127.0.0.1:18082",
+    "base_model": "/models/nemotron-nano-30b-a3b-bf16",
+    "cache_dir": "/tmp/nemotron_tinker_hf",
+    "steps": 12,
+    "learning_rate": 0.00002,
+    "microbatch_size": 4,
+    "rollouts_per_prompt": 2,
+    "max_new_tokens": 12,
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "loss_fn": "importance_sampling",
+    "tenant_id": "nemotron-rl-lora",
+    "save_prefix": "nemotron-rl-lora",
+    "poll_timeout": 3600
+  }
+}

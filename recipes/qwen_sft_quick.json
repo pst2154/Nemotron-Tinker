@@ -1,0 +1,16 @@
+{
+  "description": "Fast two-adapter Qwen SFT API check for local iteration.",
+  "kind": "qwen_sft",
+  "args": {
+    "base_url": "http://127.0.0.1:18080",
+    "base_model": "Qwen/Qwen3-0.6B",
+    "cache_dir": "/tmp/nemotron_tinker_hf",
+    "steps": 30,
+    "batch_size": 1,
+    "lr": 0.001,
+    "server_train_steps": true,
+    "max_new_tokens": 12,
+    "wait_for_server": 300,
+    "tenant_id": "qwen-sft-quick"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "description": "Full Nemotron 30B A3B two-adapter SFT large workload.",
+  "kind": "nemotron_sft",
+  "args": {
+    "base_url": "http://127.0.0.1:18081",
+    "base_model": "/models/nemotron-nano-30b-a3b-bf16",
+    "cache_dir": "/tmp/nemotron_tinker_hf",
+    "mode": "async-train",
+    "steps": 75,
+    "batch_size": 1,
+    "microbatch_size": 4,
+    "examples_per_adapter": 96,
+    "lr": 0.00005,
+    "max_tokens": 128,
+    "max_new_tokens": 24,
+    "poll_timeout": 10800,
+    "tenant_id": "nemotron-large-workload",
+    "save_prefix": "nemotron-large-workload",
+    "verify_checkpoints": true
+  }
+}

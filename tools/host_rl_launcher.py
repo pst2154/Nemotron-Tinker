@@ -133,7 +133,6 @@ def main() -> None:
     args = parser.parse_args()
 
     queue_dir = pathlib.Path(args.scratch_dir) / "tinker_api" / "host_rl_queue"
-    queue_dir.mkdir(parents=True, exist_ok=True)
     state_dir = (
         pathlib.Path(args.state_dir)
         if args.state_dir
@@ -141,7 +140,7 @@ def main() -> None:
     )
     state_dir.mkdir(parents=True, exist_ok=True)
     while True:
-        request_paths = sorted(queue_dir.glob("rljob_*.json"))
+        request_paths = sorted(queue_dir.glob("rljob_*.json")) if queue_dir.is_dir() else []
         for request_path in request_paths:
             run_job(request_path, api_url=args.api_url, api_token=args.api_token, state_dir=state_dir)
         if args.once:

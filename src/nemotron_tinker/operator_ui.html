@@ -526,7 +526,7 @@
         </div>
         <div class="mode-list">
           <button class="mode active" data-mode="flywheel"><b>Flywheel</b><span>Data -> SFT -> RL -> eval -> inference.</span></button>
-          <button class="mode" data-mode="sft"><b>Train Adapter</b><span>Create LoRAs and run SFT train_steps.</span></button>
+          <button class="mode" data-mode="sft"><b>Train Adapter</b><span>Set adapter goals, train LoRAs, then sample.</span></button>
           <button class="mode" data-mode="rl"><b>RL + Eval</b><span>Rollouts, rewards, resident RL updates, and sampling.</span></button>
         </div>
         <div class="summary-card">
@@ -548,7 +548,7 @@
         <div class="body">
           <div class="steps">
             <div class="step active"><b>1</b>Data: upload SFT rows, rollout prompts, rewards, and eval sets.</div>
-            <div class="step"><b>2</b>SFT: create a LoRA and teach the first behavior with train_steps.</div>
+            <div class="step"><b>2</b>SFT: create LoRAs and teach each one a different target behavior.</div>
             <div class="step"><b>3</b>RL: collect rollouts, score them, and improve the same resident adapter when using the API RL path.</div>
             <div class="step"><b>4</b>Inference: sample, evaluate, add failures back to data, and repeat.</div>
           </div>
@@ -565,19 +565,23 @@
 
       <section data-panel="sft">
         <div class="section-head">
-          <h2>SDK Training Loop</h2>
+          <h2>SFT Adapter Goals</h2>
           <button id="new-workspace">New Clean Workspace</button>
         </div>
         <div class="body">
           <div class="steps">
             <div id="step-1" class="step active"><b>1</b>Pick a workspace.</div>
-            <div id="step-2" class="step"><b>2</b>Create SDK training clients.</div>
-            <div id="step-3" class="step"><b>3</b>Run train_steps.</div>
-            <div id="step-4" class="step"><b>4</b>Sample each adapter.</div>
+            <div id="step-2" class="step"><b>2</b>Create Atlas and Borealis adapters.</div>
+            <div id="step-3" class="step"><b>3</b>Train each adapter toward its goal answer.</div>
+            <div id="step-4" class="step"><b>4</b>Sample and compare the learned behaviors.</div>
+          </div>
+          <div class="summary-card">
+            <strong>Goal</strong>
+            <span class="tiny">Atlas should answer map and route prompts. Borealis should answer weather and aurora prompts. The SDK is just the client layer used to send those SFT jobs.</span>
           </div>
           <div class="big-actions">
-            <button id="create-run" class="primary">Create 2 Training Clients</button>
-            <button id="train-both" class="primary">Run SDK train_steps</button>
+            <button id="create-run" class="primary">Create 2 LoRA Adapters</button>
+            <button id="train-both" class="primary">Train Both Toward Goals</button>
             <button id="sample-atlas" class="blue">Sample Atlas</button>
             <button id="sample-borealis" class="blue">Sample Borealis</button>
           </div>
@@ -590,8 +594,8 @@
 
       <section data-panel="sft">
         <div class="section-head">
-          <h2>The Two Jobs</h2>
-          <span class="tiny">Atlas and Borealis train on different text.</span>
+          <h2>The Two Goals</h2>
+          <span class="tiny">Atlas and Borealis are trained to do different things.</span>
         </div>
         <div class="body">
           <div class="two">
@@ -926,7 +930,7 @@ Say exactly: use atlas for apples</textarea></label>
         });
         const notes = {
           flywheel: "Follow the adapter flywheel: data, SFT, RL improvement, evaluation, inference.",
-          sft: "SFT uses the SDK-style createTrainingClient, sftDatum, trainSteps, and sample loop.",
+          sft: "SFT teaches each LoRA a target answer, then samples the same adapter to check the behavior.",
           rl: "Resident RL teaches a target behavior by sampling attempts, rewarding matches, and updating the same LoRA.",
         };
         $("mode-note").textContent = notes[mode];
@@ -934,7 +938,7 @@ Say exactly: use atlas for apples</textarea></label>
           mode === "flywheel"
             ? "Start with data, then run SFT."
             : mode === "sft"
-            ? "Create two training clients, train, then sample."
+            ? "Create two LoRA adapters, train toward their goals, then sample."
             : "Sample attempts, train toward the goal, then sample again.";
         render();
       }

@@ -22,19 +22,7 @@ workflow through HTTP, a small Python SDK, and the Nemotron Tinker operator UI.
 
 ## Control Plane
 
-```mermaid
-flowchart LR
-  UI["Operator UI"] --> API["FastAPI service"]
-  SDK["Python SDK"] --> API
-  HTTP["Raw HTTP clients"] --> API
-  API --> DB["SQLite metadata"]
-  API --> REQ["File-backed train request manifests"]
-  API --> WM["Worker manager"]
-  API --> CLIENT["MixedLoraServiceClient"]
-  CLIENT --> BASE["Resident base model"]
-  CLIENT --> LORA["Resident LoRA adapters"]
-  WM --> WORKERS["Local worker processes"]
-```
+![Nemotron Tinker architecture](assets/architecture.svg)
 
 The API owns run metadata, tenant scoping, idempotency, async job records,
 worker placement, rate limits, and request validation. Large train requests are

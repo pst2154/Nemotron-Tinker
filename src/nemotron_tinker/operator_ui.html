@@ -637,8 +637,7 @@
           <div class="big-actions">
             <button id="create-run" class="primary">Create 2 LoRA Adapters</button>
             <button id="train-both" class="primary">Train Both Toward Goals</button>
-            <button id="sample-atlas" class="blue">Sample Atlas</button>
-            <button id="sample-borealis" class="blue">Sample Borealis</button>
+            <button id="sample-both" class="blue">Sample Both</button>
           </div>
           <div id="train-progress" class="progress-wrap">
             <div class="progress-bar"><div id="train-progress-fill" class="progress-fill"></div></div>
@@ -760,7 +759,6 @@ Answer:</textarea></label>
           <details>
             <summary>Advanced / raw details</summary>
             <div class="advanced">
-              <button id="sample-both">Sample Both</button>
               <button id="save-both">Save Both</button>
               <button id="export-both" class="blue">Export LoRAs</button>
               <button id="detach-both" class="warn">Detach Both</button>
@@ -1195,8 +1193,6 @@ Answer:</textarea></label>
         $("new-workspace").disabled = disabled;
         $("create-run").disabled = disabled || !hasWorkspace;
         $("train-both").disabled = disabled || !hasBoth;
-        $("sample-atlas").disabled = disabled || !a;
-        $("sample-borealis").disabled = disabled || !b;
         $("sample-both").disabled = disabled || !hasBoth;
         $("save-both").disabled = disabled || !hasBoth;
         $("export-both").disabled = disabled || !hasBoth;
@@ -1514,21 +1510,25 @@ Answer:</textarea></label>
       async function sample(which) {
         const run = which === "atlas" ? atlas() : borealis();
         if (!run) throw new Error(`Create ${which} first.`);
-        const buttonId = which === "atlas" ? "sample-atlas" : "sample-borealis";
         const outputId = `${which}-output`;
-        setBusy(`sample-${which}`, "Sampling...", buttonId, "step-4", outputId);
         const prompt = which === "atlas" ? $("atlas-prompt").value : $("borealis-prompt").value;
+        const result = await sdk.sample(
+          run.run_id,
+          prompt,
+          Number($("sample-tokens").value),
+          $("use-chat-template").checked,
+        );
+        $(outputId).innerHTML =
+          `<h3>${which[0].toUpperCase() + which.slice(1)} output</h3>${visibleText(result, prompt)}`;
+        return result;
+      }
+
+      async function sampleBothSft() {
+        setBusy("sample-both", "Sampling Both...", "sample-both", "step-4");
         try {
-          const result = await sdk.sample(
-            run.run_id,
-            prompt,
-            Number($("sample-tokens").value),
-            $("use-chat-template").checked,
-          );
-          $(outputId).innerHTML =
-            `<h3>${which[0].toUpperCase() + which.slice(1)} output</h3>${visibleText(result, prompt)}`;
-          raw(result);
-          toast(`Sampled ${which}.`);
+          const [atlasResult, borealisResult] = await Promise.all([sample("atlas"), sample("borealis")]);
+          raw({ atlas: atlasResult, borealis: borealisResult });
+          toast("Sampled both adapters.");
           await refresh();
         } finally {
           clearBusy();
@@ -1644,12 +1644,7 @@ Answer:</textarea></label>
       $("borealis-prompt").oninput = syncRlPromptsFromSft;
       $("create-run").onclick = () => handle(createMissing);
       $("train-both").onclick = () => handle(trainBoth);
-      $("sample-atlas").onclick = () => handle(() => sample("atlas"));
-      $("sample-borealis").onclick = () => handle(() => sample("borealis"));
-      $("sample-both").onclick = () => handle(async () => {
-        await sample("atlas");
-        await sample("borealis");
-      });
+      $("sample-both").onclick = () => handle(sampleBothSft);
       $("save-both").onclick = () => handle(saveBoth);
       $("export-both").onclick = () => handle(exportBoth);
       $("detach-both").onclick = () => handle(detachBoth);

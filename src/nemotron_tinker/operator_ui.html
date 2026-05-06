@@ -681,11 +681,15 @@ Answer:</textarea></label>
       </section>
 
       <section data-panel="rl">
-        <div class="section-head">
-          <h2>NeMo-RL Bridge</h2>
-          <span class="tiny">Launch or dry-run GRPO from Nemotron Tinker.</span>
-        </div>
+          <div class="section-head">
+            <h2>NeMo-RL Bridge</h2>
+            <span class="tiny">Launch or dry-run GRPO from Nemotron Tinker.</span>
+          </div>
         <div class="body">
+          <div class="summary-card">
+            <strong>Launch note</strong>
+            <span class="tiny">Show RL Command is safe and works from this UI. Launch RL only works when the service process has either local NeMo-RL dependencies or explicitly approved access to a Docker CLI and socket.</span>
+          </div>
           <div class="two">
             <label>RL repo dir<input id="rl-repo" value="" /></label>
             <label>Config path<input id="rl-config" value="examples/configs/grpo_math_1B.yaml" /></label>

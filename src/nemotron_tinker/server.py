@@ -19,6 +19,7 @@ import os
 import pathlib
 import queue
 import signal
+import shutil
 import sqlite3
 import subprocess
 import threading
@@ -689,6 +690,18 @@ def _build_rl_command(request: RLJobRequest, repo_dir: pathlib.Path) -> list[str
         ]
     )
     return command
+
+
+def _check_rl_launcher_available(request: RLJobRequest) -> None:
+    """Fail fast when the selected launcher cannot run from this service process."""
+    if request.dry_run:
+        return
+    if request.launcher == "docker" and shutil.which("docker") is None:
+        raise ValueError(
+            "Docker launcher is not available inside this service container. "
+            "Use Show RL Command and run it on the host, or restart the service with an explicitly approved Docker "
+            "CLI/socket mount."
+        )
 
 
 class JsonStore:
@@ -2209,6 +2222,7 @@ def create_app(
         try:
             _resolve_rl_path(repo_dir, request.entrypoint, "entrypoint")
             _resolve_rl_path(repo_dir, request.config_path, "config_path")
+            _check_rl_launcher_available(request)
             command = _build_rl_command(request, repo_dir)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

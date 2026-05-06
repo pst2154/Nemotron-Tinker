@@ -664,12 +664,26 @@ Answer:</textarea></label>
       <section data-panel="rl">
         <div class="section-head">
           <h2>Resident RL LoRA</h2>
-          <span class="tiny">Train the same loaded adapter used by SFT and inference.</span>
+          <span class="tiny">Train the same loaded adapters used by SFT and inference.</span>
         </div>
         <div class="body">
           <div class="summary-card">
             <strong>Same base model path</strong>
             <span class="tiny">This samples from the resident run, scores those completions, and submits train_steps back to that same run.</span>
+          </div>
+          <div class="adapters">
+            <div class="adapter ready">
+              <h3>Atlas RL</h3>
+              <label>Run name or id<input id="resident-rl-atlas-run" value="atlas" /></label>
+              <label>Reward contains<input id="resident-rl-atlas-contains" value="use atlas for apples" /></label>
+              <label>Prompt<textarea id="resident-rl-atlas-prompt">Say exactly: use atlas for apples</textarea></label>
+            </div>
+            <div class="adapter ready">
+              <h3>Borealis RL</h3>
+              <label>Run name or id<input id="resident-rl-borealis-run" value="borealis" /></label>
+              <label>Reward contains<input id="resident-rl-borealis-contains" value="use borealis for weather" /></label>
+              <label>Prompt<textarea id="resident-rl-borealis-prompt">Say exactly: use borealis for weather</textarea></label>
+            </div>
           </div>
           <div class="three">
             <label>Run name or id<input id="resident-rl-run" value="atlas" /></label>
@@ -685,6 +699,8 @@ Say exactly: use atlas for apples</textarea></label>
             <label>Learning rate<input id="resident-rl-lr" value="0.00005" /></label>
           </div>
           <div class="big-actions">
+            <button id="resident-rl-train-both" class="primary">Run RL For Both</button>
+            <button id="resident-rl-sample-both" class="blue">Sample Both RL</button>
             <button id="resident-rl-train" class="primary">Run Resident RL</button>
             <button id="resident-rl-sample" class="blue">Sample Resident Run</button>
           </div>
@@ -1043,6 +1059,8 @@ Say exactly: use atlas for apples</textarea></label>
         $("save-both").disabled = disabled || !hasBoth;
         $("export-both").disabled = disabled || !hasBoth;
         $("detach-both").disabled = disabled || !hasBoth;
+        $("resident-rl-train-both").disabled = disabled || !hasBoth;
+        $("resident-rl-sample-both").disabled = disabled || !hasBoth;
         $("resident-rl-train").disabled = disabled;
         $("resident-rl-sample").disabled = disabled;
         $("gym-sample").disabled = disabled;
@@ -1065,19 +1083,16 @@ Say exactly: use atlas for apples</textarea></label>
         return run;
       }
 
-      async function runResidentRl() {
-        setBusy("resident-rl", "Training...", "resident-rl-train");
-        try {
-          await refresh();
-          const run = resolveRun($("resident-rl-run").value);
-          const prompts = $("resident-rl-prompts").value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-          const totalSteps = Number($("resident-rl-steps").value);
-          setResidentRlProgress(0, totalSteps, "collecting", "sampling resident rollouts");
-          await nextPaint();
-          const response = await sdk.residentRl(run.run_id, {
+      async function trainResidentRlRun({ runValue, prompts, rewardContains, outputLabel, progressOffset = 0, progressTotal = null }) {
+        const run = resolveRun(runValue);
+        const totalSteps = Number($("resident-rl-steps").value);
+        const displayTotal = progressTotal || totalSteps;
+        setResidentRlProgress(progressOffset, displayTotal, "collecting", `sampling ${outputLabel} rollouts`);
+        await nextPaint();
+        const response = await sdk.residentRl(run.run_id, {
             prompts,
-            reward_mode: $("resident-rl-reward").value,
-            reward_contains: $("resident-rl-contains").value.trim() || null,
+            reward_mode: "contains",
+            reward_contains: rewardContains,
             reward_baseline: 0.0,
             steps: totalSteps,
             rollouts_per_prompt: Number($("resident-rl-rollouts").value),
@@ -1088,33 +1103,81 @@ Say exactly: use atlas for apples</textarea></label>
             run_async: true,
           });
           let job = response.train_job;
-          $("resident-rl-output").textContent = JSON.stringify(response, null, 2);
+        $("resident-rl-output").textContent = `${outputLabel}\n${JSON.stringify(response, null, 2)}`;
           raw(response);
           const firstProgress = job.progress || {};
           setResidentRlProgress(
-            firstProgress.step || 0,
-            firstProgress.total_steps || totalSteps,
+          progressOffset + (firstProgress.step || 0),
+          displayTotal,
             job.status,
-            "training resident LoRA",
+          `training ${outputLabel}`,
           );
           while (!["succeeded", "failed", "canceled"].includes(job.status)) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             job = await sdk.job(job.job_id);
-            $("resident-rl-output").textContent = JSON.stringify({ ...response, train_job: job }, null, 2);
+          $("resident-rl-output").textContent = `${outputLabel}\n${JSON.stringify({ ...response, train_job: job }, null, 2)}`;
             const progress = job.progress || {};
             setResidentRlProgress(
-              progress.step || 0,
-              progress.total_steps || totalSteps,
+            progressOffset + (progress.step || 0),
+            displayTotal,
               job.status,
-              (progress.step || 0) < (progress.total_steps || totalSteps) ? "GPU is working on the current step" : "finalizing",
+            (progress.step || 0) < (progress.total_steps || totalSteps)
+              ? `GPU is training ${outputLabel}`
+              : `finalizing ${outputLabel}`,
             );
             await refresh();
           }
           const progress = job.progress || {};
-          setResidentRlProgress(progress.step || 0, progress.total_steps || totalSteps, job.status, "done");
+        setResidentRlProgress(progressOffset + (progress.step || 0), displayTotal, job.status, `${outputLabel} done`);
           if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
+        return { ...response, train_job: job };
+      }
+
+      async function runResidentRl() {
+        setBusy("resident-rl", "Training...", "resident-rl-train");
+        try {
+          await refresh();
+          const prompts = $("resident-rl-prompts").value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+          const response = await trainResidentRlRun({
+            runValue: $("resident-rl-run").value,
+            prompts,
+            rewardContains: $("resident-rl-contains").value.trim() || null,
+            outputLabel: "Resident RL",
+          });
           toast("Resident RL finished.");
-          $("resident-rl-output").textContent = JSON.stringify({ ...response, train_job: job }, null, 2);
+          $("resident-rl-output").textContent = JSON.stringify(response, null, 2);
+        } finally {
+          clearBusy();
+          await refresh();
+          setTimeout(hideResidentRlProgress, 1800);
+        }
+      }
+
+      async function runResidentRlBoth() {
+        setBusy("resident-rl-both", "Training Both...", "resident-rl-train-both");
+        try {
+          await refresh();
+          const steps = Number($("resident-rl-steps").value);
+          const atlasResult = await trainResidentRlRun({
+            runValue: $("resident-rl-atlas-run").value,
+            prompts: [$("resident-rl-atlas-prompt").value.trim()],
+            rewardContains: $("resident-rl-atlas-contains").value.trim(),
+            outputLabel: "Atlas RL",
+            progressOffset: 0,
+            progressTotal: steps * 2,
+          });
+          const borealisResult = await trainResidentRlRun({
+            runValue: $("resident-rl-borealis-run").value,
+            prompts: [$("resident-rl-borealis-prompt").value.trim()],
+            rewardContains: $("resident-rl-borealis-contains").value.trim(),
+            outputLabel: "Borealis RL",
+            progressOffset: steps,
+            progressTotal: steps * 2,
+          });
+          setResidentRlProgress(steps * 2, steps * 2, "succeeded", "both adapters done");
+          $("resident-rl-output").textContent = JSON.stringify({ atlas: atlasResult, borealis: borealisResult }, null, 2);
+          raw({ atlas: atlasResult, borealis: borealisResult });
+          toast("Resident RL finished for both adapters.");
         } finally {
           clearBusy();
           await refresh();
@@ -1134,6 +1197,33 @@ Say exactly: use atlas for apples</textarea></label>
           $("resident-rl-output").textContent = `${run.name || run.run_id} output\n${text}\n\n${JSON.stringify(result, null, 2)}`;
           raw(result);
           toast("Sampled resident run.");
+        } finally {
+          clearBusy();
+          await refresh();
+        }
+      }
+
+      async function sampleResidentRlBoth() {
+        setBusy("resident-sample-both", "Sampling Both...", "resident-rl-sample-both");
+        try {
+          await refresh();
+          const atlasRun = resolveRun($("resident-rl-atlas-run").value);
+          const borealisRun = resolveRun($("resident-rl-borealis-run").value);
+          const atlasPrompt = $("resident-rl-atlas-prompt").value.trim();
+          const borealisPrompt = $("resident-rl-borealis-prompt").value.trim();
+          const [atlasResult, borealisResult] = await Promise.all([
+            sdk.sample(atlasRun.run_id, atlasPrompt, Number($("resident-rl-tokens").value), false),
+            sdk.sample(borealisRun.run_id, borealisPrompt, Number($("resident-rl-tokens").value), false),
+          ]);
+          $("resident-rl-output").textContent = [
+            `Atlas output\n${visibleText(atlasResult, atlasPrompt)}`,
+            "",
+            `Borealis output\n${visibleText(borealisResult, borealisPrompt)}`,
+            "",
+            JSON.stringify({ atlas: atlasResult, borealis: borealisResult }, null, 2),
+          ].join("\n");
+          raw({ atlas: atlasResult, borealis: borealisResult });
+          toast("Sampled both resident runs.");
         } finally {
           clearBusy();
           await refresh();
@@ -1382,6 +1472,8 @@ Say exactly: use atlas for apples</textarea></label>
       document.querySelectorAll("[data-mode-jump]").forEach((button) => {
         button.onclick = () => setMode(button.dataset.modeJump);
       });
+      $("resident-rl-train-both").onclick = () => handle(runResidentRlBoth);
+      $("resident-rl-sample-both").onclick = () => handle(sampleResidentRlBoth);
       $("resident-rl-train").onclick = () => handle(runResidentRl);
       $("resident-rl-sample").onclick = () => handle(sampleResidentRl);
       $("gym-sample").onclick = () => handle(collectGymRollout);

@@ -1188,6 +1188,8 @@ def test_resident_rl_trains_same_run_with_sampled_logprobs(monkeypatch, tmp_path
     assert response["train_job"]["progress"]["step"] == 2
     assert response["rollout_count"] == 2
     assert response["reward_summary"]["mean"] == 1.0
+    assert response["reward_summary"]["baseline"] == 0.0
+    assert response["rollouts"][0]["advantage"] == 1.0
     assert response["train_response"]["runs"][created["run_id"]]["optimizer_steps"] == 2
     assert all(row["prompt"] == "say atlas" for row in response["rollouts"])
 

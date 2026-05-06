@@ -1188,6 +1188,7 @@ logger.wandb_enabled=false</textarea></label>
             prompts,
             reward_mode: $("resident-rl-reward").value,
             reward_contains: $("resident-rl-contains").value.trim() || null,
+            reward_baseline: 0.0,
             steps: Number($("resident-rl-steps").value),
             rollouts_per_prompt: Number($("resident-rl-rollouts").value),
             max_new_tokens: Number($("resident-rl-tokens").value),

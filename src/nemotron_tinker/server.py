@@ -207,7 +207,7 @@ class ResidentRLTrainRequest(BaseModel):
     top_p: float = 0.95
     reward_mode: ResidentRLRewardMode = "nonempty"
     reward_contains: Optional[str] = None
-    reward_baseline: Optional[float] = None
+    reward_baseline: Optional[float] = 0.0
     reward_scale: float = 1.0
     steps: int = 1
     learning_rate: float = 2e-5

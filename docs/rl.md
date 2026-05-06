@@ -53,6 +53,7 @@ RL** uses this path.
   "prompts": ["Say exactly: use atlas for apples"],
   "reward_mode": "contains",
   "reward_contains": "atlas",
+  "reward_baseline": 0.0,
   "rollouts_per_prompt": 2,
   "max_new_tokens": 12,
   "steps": 4,

@@ -1224,6 +1224,13 @@ def test_resident_rl_reward_scores_completion_not_prompt(monkeypatch, tmp_path):
     assert response["rollouts"][0]["advantage"] == -0.5
 
 
+def test_resident_rl_reward_modes_are_stricter_than_contains():
+    assert server._resident_rl_reward("use atlas for apples", "contains", "atlas") == 1.0
+    assert server._resident_rl_reward("use atlas for apples extra", "exact", "use atlas for apples") == -0.5
+    assert server._resident_rl_reward("use atlas for apples extra", "starts_with", "use atlas for apples") == 1.0
+    assert server._resident_rl_reward("route: ATLAS-42", "regex", r"ATLAS-\d+") == 1.0
+
+
 def test_resident_rl_mixed_trains_two_runs_in_one_job(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
     app = server.create_app(base_model="fake-model", scratch_dir=tmp_path)
@@ -1239,11 +1246,13 @@ def test_resident_rl_mixed_trains_two_runs_in_one_job(monkeypatch, tmp_path):
                     "run_id": atlas["run_id"],
                     "prompts": ["say atlas"],
                     "reward_contains": atlas["adapter_id"],
+                    "save_name": "atlas-v1-rl",
                 },
                 {
                     "run_id": borealis["run_id"],
                     "prompts": ["say borealis"],
                     "reward_contains": borealis["adapter_id"],
+                    "save_name": "borealis-v1-rl",
                 },
             ],
             "rollouts_per_prompt": 2,
@@ -1267,6 +1276,8 @@ def test_resident_rl_mixed_trains_two_runs_in_one_job(monkeypatch, tmp_path):
     assert len(response["rollouts_by_run"][borealis["run_id"]]) == 2
     assert response["train_response"]["runs"][atlas["run_id"]]["optimizer_steps"] == 3
     assert response["train_response"]["runs"][borealis["run_id"]]["optimizer_steps"] == 3
+    assert response["train_response"]["runs"][atlas["run_id"]]["last_checkpoint_path"] == "/tmp/atlas-v1-rl"
+    assert response["train_response"]["runs"][borealis["run_id"]]["last_checkpoint_path"] == "/tmp/borealis-v1-rl"
 
 
 def test_mixed_lora_server_submits_async_train_job(monkeypatch, tmp_path):

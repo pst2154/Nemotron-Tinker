@@ -43,10 +43,9 @@ and inference through the same resident adapter:
 POST /runs/{run_id}/resident_rl
 ```
 
-The endpoint samples from `{run_id}`, scores each completion with a simple
-built-in reward rule, converts sampled token/logprob traces into RL datums, and
-submits `/train_steps` for the same run. The operator UI button **Run Resident
-RL** uses this path.
+The endpoint samples from `{run_id}`, scores each completion with a built-in
+reward rule, converts sampled token/logprob traces into RL datums, and submits
+`/train_steps` for the same run.
 
 Rewards are computed on the generated completion text, not on the prompt plus
 completion. This matters for goal prompts such as `Say exactly: ...`, because
@@ -68,7 +67,9 @@ the target phrase appearing in the prompt should not receive reward by itself.
 ```
 
 Reward modes are intentionally small and inspectable for V1 testing:
-`contains`, `concise`, `integer`, and `nonempty`.
+`exact`, `starts_with`, `contains`, `regex`, `concise`, `integer`, and
+`nonempty`. Prefer `exact` for "Say exactly..." tasks; `contains` is useful for
+looser debugging but can reward sloppy continuations.
 
 For the normal two-adapter UI path, use the mixed resident endpoint:
 
@@ -79,7 +80,20 @@ POST /resident_rl
 This endpoint samples rollouts for multiple resident adapters, builds one RL
 batch per run, and submits a single mixed `/train_steps` job. The adapters
 still share one resident base model, but they are trained in the same
-server-owned loop instead of one UI request per adapter.
+server-owned loop instead of one UI request per adapter. Each rollout includes
+the target text, generated completion text, scalar reward, and matched/missed
+status so the UI can show per-adapter reward rows instead of only aggregate
+means.
+
+The operator UI wraps this endpoint in a before/after eval flow:
+
+```text
+sample Atlas and Borealis before RL
+collect rollouts and reward each completion
+train both LoRAs in one mixed RL job
+save atlas-v<timestamp>-rl and borealis-v<timestamp>-rl
+sample Atlas and Borealis after RL
+```
 
 ## Run The RL Recipe
 

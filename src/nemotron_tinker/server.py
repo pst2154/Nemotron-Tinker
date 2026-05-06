@@ -18,6 +18,7 @@ import json
 import os
 import pathlib
 import queue
+import re
 import signal
 import shutil
 import sqlite3
@@ -55,7 +56,7 @@ _, Field = safe_import_from("pydantic", "Field")
 MetadataBackend = Literal["sqlite", "json"]
 RLLauncher = Literal["local", "docker", "host"]
 RLRunner = Literal["uv", "python"]
-ResidentRLRewardMode = Literal["concise", "integer", "nonempty", "contains"]
+ResidentRLRewardMode = Literal["concise", "integer", "nonempty", "contains", "exact", "starts_with", "regex"]
 TENANT_HEADER = "x-tinker-tenant-id"
 
 if not HAS_PYDANTIC:  # pragma: no cover
@@ -532,6 +533,8 @@ def _datum_from_request(request: DatumRequest) -> Datum:
 
 def _resident_rl_reward(text: str, mode: ResidentRLRewardMode, reward_contains: Optional[str]) -> float:
     stripped = text.strip()
+    normalized = " ".join(stripped.lower().split())
+    target = " ".join((reward_contains or "").strip().lower().split())
     if mode == "nonempty":
         return 1.0 if stripped else -1.0
     if mode == "concise":
@@ -549,10 +552,25 @@ def _resident_rl_reward(text: str, mode: ResidentRLRewardMode, reward_contains: 
             return 0.5
         return -0.5
     if mode == "contains":
-        needle = (reward_contains or "").strip().lower()
-        if not needle:
+        if not target:
             raise ValueError("reward_contains is required when reward_mode='contains'")
-        return 1.0 if needle in stripped.lower() else -0.5
+        return 1.0 if target in normalized else -0.5
+    if mode == "exact":
+        if not target:
+            raise ValueError("reward_contains is required when reward_mode='exact'")
+        return 1.0 if normalized == target else -0.5
+    if mode == "starts_with":
+        if not target:
+            raise ValueError("reward_contains is required when reward_mode='starts_with'")
+        return 1.0 if normalized.startswith(target) else -0.5
+    if mode == "regex":
+        pattern = (reward_contains or "").strip()
+        if not pattern:
+            raise ValueError("reward_contains is required when reward_mode='regex'")
+        try:
+            return 1.0 if re.search(pattern, stripped, flags=re.IGNORECASE | re.MULTILINE) else -0.5
+        except re.error as exc:
+            raise ValueError(f"Invalid resident RL reward regex: {exc}") from exc
     raise ValueError(f"Unsupported resident RL reward_mode={mode!r}")
 
 
@@ -2594,9 +2612,12 @@ def create_app(
                     rollouts.append(
                         {
                             "prompt": prompt,
+                            "target_text": request.reward_contains,
+                            "reward_mode": request.reward_mode,
                             "text": output.text,
                             "completion_text": completion_text,
                             "reward": reward,
+                            "matched": reward > 0,
                             "tokens": output.tokens,
                             "prompt_token_count": output.prompt_token_count,
                             "generated_logprobs": output.generated_logprobs,

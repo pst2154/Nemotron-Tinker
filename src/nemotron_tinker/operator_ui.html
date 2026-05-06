@@ -362,6 +362,12 @@
         gap: 12px;
       }
 
+      .five {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
       .adapter {
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -431,6 +437,37 @@
       .answer-text {
         font-size: 16px;
         line-height: 1.5;
+      }
+
+      .reward-table {
+        width: 100%;
+        margin-top: 12px;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .reward-table th,
+      .reward-table td {
+        border-top: 1px solid var(--line);
+        padding: 8px 6px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .reward-table th {
+        color: var(--green);
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+
+      .match-ok {
+        color: var(--green);
+        font-weight: 900;
+      }
+
+      .match-miss {
+        color: var(--red);
+        font-weight: 900;
       }
 
       details {
@@ -507,7 +544,8 @@
 
         .top,
         .three,
-        .four {
+        .four,
+        .five {
           grid-template-columns: 1fr;
         }
 
@@ -687,11 +725,12 @@ Answer:</textarea></label>
               <label>Prompt<textarea id="resident-rl-borealis-prompt">Say exactly: use borealis for weather</textarea></label>
             </div>
           </div>
-          <div class="four">
+          <div class="five">
             <label>RL steps<input id="resident-rl-steps" type="number" min="1" value="4" /></label>
             <label>Rollouts/prompt<input id="resident-rl-rollouts" type="number" min="1" value="1" /></label>
             <label>Max output tokens<input id="resident-rl-tokens" type="number" min="1" value="12" /></label>
             <label>Learning rate<input id="resident-rl-lr" value="0.00005" /></label>
+            <label>Reward mode<select id="resident-rl-reward-mode"><option value="exact">exact</option><option value="starts_with">starts with</option><option value="contains">contains</option><option value="regex">regex</option></select></label>
           </div>
           <div class="big-actions">
             <button id="resident-rl-sample-both" class="blue">1. Sample Both Before/After</button>
@@ -808,13 +847,14 @@ Answer:</textarea></label>
           );
         }
 
-        trainSteps(batches, steps, learningRate) {
+        trainSteps(batches, steps, learningRate, saveNames = {}) {
           return this.call("/train_steps", {
             method: "POST",
             body: JSON.stringify({
               batches,
               steps,
               learning_rate: learningRate,
+              save_names: saveNames,
               run_async: true,
             }),
           });
@@ -942,6 +982,75 @@ Answer:</textarea></label>
         $(elementId).innerHTML = [
           title ? `<h3>${escapeHtml(title)}</h3>` : "",
           `<div class="answer-text">${escapeHtml(text || "(empty output)")}</div>`,
+          rawBlock,
+        ].join("");
+      }
+
+      function formatReward(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number.toFixed(2) : String(value);
+      }
+
+      function rolloutRows(payload, runLabels = {}) {
+        const rows = [];
+        Object.entries(payload?.rollouts_by_run || {}).forEach(([runId, rollouts]) => {
+          (rollouts || []).forEach((rollout, index) => {
+            rows.push({ runId, index, label: runLabels[runId] || runId, rollout });
+          });
+        });
+        return rows;
+      }
+
+      function renderRewardReport(payload, runLabels = {}, before = null, after = null) {
+        const rows = rolloutRows(payload, runLabels);
+        const beforeBlock = before
+          ? [
+              "<h3>Before RL</h3>",
+              `<div class="answer-text">Atlas: ${escapeHtml(before.atlas || "(empty output)")}</div>`,
+              `<div class="answer-text">Borealis: ${escapeHtml(before.borealis || "(empty output)")}</div>`,
+            ].join("")
+          : "";
+        const afterBlock = after
+          ? [
+              "<h3>After RL</h3>",
+              `<div class="answer-text">Atlas: ${escapeHtml(after.atlas || "(empty output)")}</div>`,
+              `<div class="answer-text">Borealis: ${escapeHtml(after.borealis || "(empty output)")}</div>`,
+            ].join("")
+          : "";
+        const table = rows.length
+          ? [
+              '<table class="reward-table">',
+              "<thead><tr><th>Adapter</th><th>Reward</th><th>Match</th><th>Target</th><th>Completion</th></tr></thead>",
+              "<tbody>",
+              rows
+                .map(({ label, rollout }) => {
+                  const matched = rollout.matched ? "matched" : "missed";
+                  const matchClass = rollout.matched ? "match-ok" : "match-miss";
+                  return [
+                    "<tr>",
+                    `<td>${escapeHtml(label)}</td>`,
+                    `<td>${escapeHtml(formatReward(rollout.reward))}</td>`,
+                    `<td class="${matchClass}">${matched}</td>`,
+                    `<td>${escapeHtml(rollout.target_text || "")}</td>`,
+                    `<td>${escapeHtml(rollout.completion_text || "")}</td>`,
+                    "</tr>",
+                  ].join("");
+                })
+                .join(""),
+              "</tbody></table>",
+            ].join("")
+          : '<div class="answer-text">No rollouts returned.</div>';
+        const rawBlock = [
+          "<details>",
+          "<summary>Show raw response</summary>",
+          `<pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`,
+          "</details>",
+        ].join("");
+        $("resident-rl-output").innerHTML = [
+          "<h3>RL rewards</h3>",
+          beforeBlock,
+          table,
+          afterBlock,
           rawBlock,
         ].join("");
       }
@@ -1109,6 +1218,24 @@ Answer:</textarea></label>
         return run;
       }
 
+      function versionStamp() {
+        return new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+      }
+
+      async function sampleRlPair(atlasRun, borealisRun) {
+        const atlasPrompt = $("resident-rl-atlas-prompt").value.trim();
+        const borealisPrompt = $("resident-rl-borealis-prompt").value.trim();
+        const [atlasResult, borealisResult] = await Promise.all([
+          sdk.sample(atlasRun.run_id, atlasPrompt, Number($("resident-rl-tokens").value), false),
+          sdk.sample(borealisRun.run_id, borealisPrompt, Number($("resident-rl-tokens").value), false),
+        ]);
+        return {
+          atlas: visibleText(atlasResult, atlasPrompt),
+          borealis: visibleText(borealisResult, borealisPrompt),
+          raw: { atlas: atlasResult, borealis: borealisResult },
+        };
+      }
+
       async function trainResidentRlRun({ runValue, prompts, rewardContains, outputLabel, progressOffset = 0, progressTotal = null }) {
         const run = resolveRun(runValue);
         const totalSteps = Number($("resident-rl-steps").value);
@@ -1176,19 +1303,32 @@ Answer:</textarea></label>
           const steps = Number($("resident-rl-steps").value);
           const atlasRun = resolveRun($("resident-rl-atlas-run").value);
           const borealisRun = resolveRun($("resident-rl-borealis-run").value);
+          const rewardMode = $("resident-rl-reward-mode").value;
+          setResidentRlProgress(0, steps, "sampling", "before-RL eval");
+          const before = await sampleRlPair(atlasRun, borealisRun);
+          renderOutputPanel(
+            "resident-rl-output",
+            "Before RL",
+            [`Atlas: ${before.atlas}`, "", `Borealis: ${before.borealis}`].join("\n"),
+            before.raw,
+          );
+          await nextPaint();
+          const stamp = versionStamp();
           const response = await sdk.residentRlMixed({
             runs: [
               {
                 run_id: atlasRun.run_id,
                 prompts: [$("resident-rl-atlas-prompt").value.trim()],
-                reward_mode: "contains",
+                reward_mode: rewardMode,
                 reward_contains: $("resident-rl-atlas-contains").value.trim(),
+                save_name: `atlas-v${stamp}-rl`,
               },
               {
                 run_id: borealisRun.run_id,
                 prompts: [$("resident-rl-borealis-prompt").value.trim()],
-                reward_mode: "contains",
+                reward_mode: rewardMode,
                 reward_contains: $("resident-rl-borealis-contains").value.trim(),
+                save_name: `borealis-v${stamp}-rl`,
               },
             ],
             reward_baseline: 0.0,
@@ -1225,15 +1365,13 @@ Answer:</textarea></label>
           setResidentRlProgress(progress.step || steps, progress.total_steps || steps, job.status, "both adapters done");
           if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
           const result = { ...response, train_job: job };
-          renderOutputPanel(
-            "resident-rl-output",
-            "Resident RL finished for both",
-            [
-              `Atlas reward mean: ${response.reward_summaries[atlasRun.run_id].mean}.`,
-              `Borealis reward mean: ${response.reward_summaries[borealisRun.run_id].mean}.`,
-              `Shared job: ${job.job_id} (${job.status}).`,
-            ].join("\n"),
+          setResidentRlProgress(progress.step || steps, progress.total_steps || steps, "sampling", "after-RL eval");
+          const after = await sampleRlPair(atlasRun, borealisRun);
+          renderRewardReport(
             result,
+            { [atlasRun.run_id]: "Atlas", [borealisRun.run_id]: "Borealis" },
+            before,
+            after,
           );
           raw(result);
           toast("Mixed Resident RL finished for both adapters.");
@@ -1250,23 +1388,14 @@ Answer:</textarea></label>
           await refresh();
           const atlasRun = resolveRun($("resident-rl-atlas-run").value);
           const borealisRun = resolveRun($("resident-rl-borealis-run").value);
-          const atlasPrompt = $("resident-rl-atlas-prompt").value.trim();
-          const borealisPrompt = $("resident-rl-borealis-prompt").value.trim();
-          const [atlasResult, borealisResult] = await Promise.all([
-            sdk.sample(atlasRun.run_id, atlasPrompt, Number($("resident-rl-tokens").value), false),
-            sdk.sample(borealisRun.run_id, borealisPrompt, Number($("resident-rl-tokens").value), false),
-          ]);
+          const result = await sampleRlPair(atlasRun, borealisRun);
           renderOutputPanel(
             "resident-rl-output",
             "Resident RL samples",
-            [
-              `Atlas output\n${visibleText(atlasResult, atlasPrompt)}`,
-              "",
-              `Borealis output\n${visibleText(borealisResult, borealisPrompt)}`,
-            ].join("\n"),
-            { atlas: atlasResult, borealis: borealisResult },
+            [`Atlas output\n${result.atlas}`, "", `Borealis output\n${result.borealis}`].join("\n"),
+            result.raw,
           );
-          raw({ atlas: atlasResult, borealis: borealisResult });
+          raw(result.raw);
           toast("Sampled both resident runs.");
         } finally {
           clearBusy();
@@ -1318,7 +1447,11 @@ Answer:</textarea></label>
           const trainBatches = await batches();
           setTrainProgress(0, totalSteps, "submitting", "sending async training job");
           await nextPaint();
-          const submitted = await sdk.trainSteps(trainBatches, totalSteps, Number($("lr").value));
+          const stamp = versionStamp();
+          const submitted = await sdk.trainSteps(trainBatches, totalSteps, Number($("lr").value), {
+            [atlas().run_id]: `atlas-v${stamp}-sft`,
+            [borealis().run_id]: `borealis-v${stamp}-sft`,
+          });
           let job = submitted.job;
           state.activeTrainJobId = job.job_id;
           raw(submitted);

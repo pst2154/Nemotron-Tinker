@@ -48,6 +48,28 @@ workloads, inference, save, restore, and UI/API smoke paths.
 
 ## Quick Start
 
+Deploy the live single-node GPU service and open a local UI tunnel:
+
+```bash
+scripts/deploy_gpu.sh start
+```
+
+Defaults target `alon-ts1-iec-08`, the Nemotron Nano 30B A3B BF16 model under
+scratch, and the resident-only operator UI at:
+
+```text
+http://127.0.0.1:18081/ui
+```
+
+Useful variants:
+
+```bash
+scripts/deploy_gpu.sh status
+scripts/deploy_gpu.sh tunnel
+scripts/deploy_gpu.sh stop
+GPU_HOST=alon-ts1-iec-16 LOCAL_PORT=18082 scripts/deploy_gpu.sh start
+```
+
 Start the service with a small model:
 
 ```bash

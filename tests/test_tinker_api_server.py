@@ -1191,9 +1191,11 @@ def test_resident_rl_trains_same_run_with_sampled_logprobs(monkeypatch, tmp_path
     assert response["rollout_count"] == 2
     assert response["reward_summary"]["mean"] == 1.0
     assert response["reward_summary"]["baseline"] == 0.0
+    assert response["reward_summary"]["target_anchor_count"] == 1.0
     assert response["rollouts"][0]["advantage"] == 1.0
     assert response["rollouts"][0]["completion_text"] == f" {created['adapter_id']}"
     assert response["train_response"]["runs"][created["run_id"]]["optimizer_steps"] == 2
+    assert response["train_job"]["progress"]["request_ref"]["examples_by_run"][created["run_id"]] == 3
     assert all(row["prompt"] == "say atlas" for row in response["rollouts"])
 
 
@@ -1269,9 +1271,12 @@ def test_resident_rl_mixed_trains_two_runs_in_one_job(monkeypatch, tmp_path):
     assert response["train_job"]["run_ids"] == [atlas["run_id"], borealis["run_id"]]
     assert response["train_job"]["progress"]["request_ref"]["num_runs"] == 2
     assert response["train_job"]["progress"]["request_ref"]["loss_fn"] == "importance_sampling"
+    assert response["train_job"]["progress"]["request_ref"]["total_examples"] == 6
     assert response["rollout_count"] == 4
     assert response["reward_summaries"][atlas["run_id"]]["mean"] == 1.0
+    assert response["reward_summaries"][atlas["run_id"]]["target_anchor_count"] == 1.0
     assert response["reward_summaries"][borealis["run_id"]]["mean"] == 1.0
+    assert response["reward_summaries"][borealis["run_id"]]["target_anchor_count"] == 1.0
     assert len(response["rollouts_by_run"][atlas["run_id"]]) == 2
     assert len(response["rollouts_by_run"][borealis["run_id"]]) == 2
     assert response["train_response"]["runs"][atlas["run_id"]]["optimizer_steps"] == 3

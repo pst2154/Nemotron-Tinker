@@ -210,6 +210,7 @@ class ResidentRLTrainRequest(BaseModel):
     reward_contains: Optional[str] = None
     reward_baseline: Optional[float] = 0.0
     reward_scale: float = 1.0
+    target_training_weight: float = 1.0
     steps: int = 1
     learning_rate: float = 2e-5
     microbatch_size: Optional[int] = None
@@ -240,6 +241,7 @@ class ResidentRLMixedTrainRequest(BaseModel):
     top_p: float = 0.95
     reward_baseline: Optional[float] = 0.0
     reward_scale: float = 1.0
+    target_training_weight: float = 1.0
     steps: int = 1
     learning_rate: float = 2e-5
     microbatch_size: Optional[int] = None
@@ -619,6 +621,14 @@ def _resident_rl_datum_from_trace(
             "advantages": advantages[:target_count],
         },
     )
+
+
+def _target_completion_for_prompt(prompt: str, target: str) -> str:
+    if not target:
+        return target
+    if prompt and not prompt.endswith((" ", "\n", "\t")) and not target.startswith((" ", "\n", "\t")):
+        return f" {target}"
+    return target
 
 
 def _adam_from_request(request: OptimStepRequest) -> AdamParams:
@@ -1485,8 +1495,7 @@ def create_app(
     def metrics() -> ServiceMetricsSnapshot:
         return service_metrics.snapshot()
 
-    @app.post("/datasets/sft_datum", response_model=DatumRequest)
-    def tokenize_sft_datum(request: TextSFTDatumRequest) -> DatumRequest:
+    def text_sft_datum(request: TextSFTDatumRequest) -> DatumRequest:
         if request.use_chat_template:
             prompt_tokens = _apply_chat_template_or_raise(
                 service.tokenizer,
@@ -1519,6 +1528,28 @@ def create_app(
             model_input=ModelInputRequest(tokens=input_tokens),
             loss_fn_inputs={"target_tokens": {"tokens": target_tokens}, "weights": weights},
         )
+
+    def resident_rl_target_datum(
+        prompt: str, target: Optional[str], weight: float, max_tokens: int
+    ) -> DatumRequest | None:
+        if not target or weight <= 0:
+            return None
+        datum = text_sft_datum(
+            TextSFTDatumRequest(
+                prompt=prompt,
+                completion=_target_completion_for_prompt(prompt, target),
+                max_tokens=max_tokens,
+                use_chat_template=False,
+            )
+        )
+        weights = [float(value) for value in datum.loss_fn_inputs.get("weights", [])]
+        datum.loss_fn_inputs["logprobs"] = [0.0] * len(weights)
+        datum.loss_fn_inputs["advantages"] = [float(weight) if value else 0.0 for value in weights]
+        return datum
+
+    @app.post("/datasets/sft_datum", response_model=DatumRequest)
+    def tokenize_sft_datum(request: TextSFTDatumRequest) -> DatumRequest:
+        return text_sft_datum(request)
 
     @app.get("/workers", response_model=list[WorkerProcessRecord])
     def list_workers() -> list[WorkerProcessRecord]:
@@ -2642,12 +2673,27 @@ def create_app(
         ]
         for row, datum in zip(rollouts, datums):
             row["advantage"] = datum.loss_fn_inputs["advantages"][-1] if datum.loss_fn_inputs["advantages"] else 0.0
+        target_anchor_count = 0
+        for prompt in request.prompts:
+            target_datum = resident_rl_target_datum(
+                prompt,
+                request.reward_contains,
+                request.target_training_weight * request.reward_scale,
+                max_tokens=max(
+                    request.max_new_tokens + len(service.tokenizer.encode(prompt, add_special_tokens=True)), 8
+                ),
+            )
+            if target_datum is None:
+                continue
+            datums.append(target_datum)
+            target_anchor_count += 1
         reward_summary = {
             "count": float(len(rewards)),
             "mean": sum(rewards) / max(len(rewards), 1),
             "min": min(rewards) if rewards else 0.0,
             "max": max(rewards) if rewards else 0.0,
             "baseline": float(baseline),
+            "target_anchor_count": float(target_anchor_count),
         }
         return rollouts, datums, reward_summary
 
@@ -2738,6 +2784,7 @@ def create_app(
                 reward_contains=run_request.reward_contains,
                 reward_baseline=request.reward_baseline,
                 reward_scale=request.reward_scale,
+                target_training_weight=request.target_training_weight,
                 steps=request.steps,
                 learning_rate=request.learning_rate,
                 microbatch_size=request.microbatch_size,

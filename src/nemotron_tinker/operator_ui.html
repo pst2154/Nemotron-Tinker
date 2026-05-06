@@ -1455,7 +1455,7 @@ Answer:</textarea></label>
           rollouts_per_prompt: Number($("resident-rl-rollouts").value),
           max_new_tokens: Number($("resident-rl-tokens").value),
           learning_rate: Number($("resident-rl-lr").value),
-          loss_fn: "importance_sampling",
+          loss_fn: "cispo",
           loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
           run_async: true,
         });
@@ -1558,7 +1558,7 @@ Answer:</textarea></label>
               max_new_tokens: Number($("resident-rl-tokens").value),
               learning_rate: Number($("resident-rl-lr").value),
               microbatch_size: 1,
-              loss_fn: "importance_sampling",
+              loss_fn: "cispo",
               loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
               run_async: true,
             });

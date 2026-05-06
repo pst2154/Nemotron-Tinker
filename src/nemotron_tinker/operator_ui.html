@@ -698,6 +698,7 @@
           <div class="big-actions">
             <button id="run-guided-demo" class="primary">Run Guided Demo</button>
             <button id="demo-defaults" class="blue">Use Demo Defaults</button>
+            <button id="strong-rl-defaults" class="blue">Use Strong RL Test</button>
             <button id="reset-demo-log">Reset Demo Log</button>
           </div>
           <div id="demo-timeline" class="demo-timeline"></div>
@@ -801,22 +802,22 @@ Answer:</textarea></label>
             <div class="adapter ready">
               <h3>Atlas RL</h3>
               <label>Run name or id<input id="resident-rl-atlas-run" value="atlas" /></label>
-              <label>New RL target answer<input id="resident-rl-atlas-contains" value="Use the atlas adapter for apple inventory and orchard planning." /></label>
+              <label>New RL target answer<input id="resident-rl-atlas-contains" value="Use atlas for apples." /></label>
               <label>Prompt reused from SFT<textarea id="resident-rl-atlas-prompt" readonly>Route code: ATLAS
 Answer:</textarea></label>
             </div>
             <div class="adapter ready">
               <h3>Borealis RL</h3>
               <label>Run name or id<input id="resident-rl-borealis-run" value="borealis" /></label>
-              <label>New RL target answer<input id="resident-rl-borealis-contains" value="Use the borealis adapter for storm alerts and forecast decisions." /></label>
+              <label>New RL target answer<input id="resident-rl-borealis-contains" value="Use borealis for storms." /></label>
               <label>Prompt reused from SFT<textarea id="resident-rl-borealis-prompt" readonly>Route code: BOREALIS
 Answer:</textarea></label>
             </div>
           </div>
           <div class="five">
-            <label>RL steps<input id="resident-rl-steps" type="number" min="1" value="4" /></label>
-            <label>Rollouts/prompt<input id="resident-rl-rollouts" type="number" min="1" value="1" /></label>
-            <label>Max output tokens<input id="resident-rl-tokens" type="number" min="1" value="12" /></label>
+            <label>RL steps<input id="resident-rl-steps" type="number" min="1" value="16" /></label>
+            <label>Rollouts/prompt<input id="resident-rl-rollouts" type="number" min="1" value="2" /></label>
+            <label>Max output tokens<input id="resident-rl-tokens" type="number" min="1" value="48" /></label>
             <label>Learning rate<input id="resident-rl-lr" value="0.00005" /></label>
             <label>Reward mode<select id="resident-rl-reward-mode"><option value="exact">exact</option><option value="starts_with">starts with</option><option value="contains">contains</option><option value="regex">regex</option></select></label>
           </div>
@@ -1147,20 +1148,31 @@ Answer:</textarea></label>
         $("steps").value = "20";
         $("lr").value = "0.0005";
         $("max-tokens").value = "96";
-        $("sample-tokens").value = "24";
+        $("sample-tokens").value = "40";
         $("sample-first-sentence").checked = true;
         $("use-chat-template").checked = true;
-        $("resident-rl-steps").value = "4";
+        $("resident-rl-steps").value = "16";
         $("resident-rl-rollouts").value = "2";
-        $("resident-rl-tokens").value = "24";
+        $("resident-rl-tokens").value = "48";
         $("resident-rl-lr").value = "0.00005";
         $("resident-rl-reward-mode").value = "starts_with";
         $("atlas-answer").value = " Use the atlas adapter for maps, routes, and navigation planning.";
         $("borealis-answer").value = " Use the borealis adapter for aurora, weather, and northern sky reports.";
-        $("resident-rl-atlas-contains").value = "Use the atlas adapter for apple inventory and orchard planning.";
-        $("resident-rl-borealis-contains").value = "Use the borealis adapter for storm alerts and forecast decisions.";
+        $("resident-rl-atlas-contains").value = "Use atlas for apples.";
+        $("resident-rl-borealis-contains").value = "Use borealis for storms.";
         syncRlPromptsFromSft();
         toast("Demo defaults applied.");
+      }
+
+      function applyStrongRlDefaults() {
+        applyDemoDefaults();
+        $("resident-rl-steps").value = "64";
+        $("resident-rl-rollouts").value = "4";
+        $("resident-rl-tokens").value = "64";
+        $("resident-rl-lr").value = "0.0001";
+        $("resident-rl-reward-mode").value = "starts_with";
+        $("sample-tokens").value = "64";
+        toast("Stronger RL test settings applied.");
       }
 
       function formatReward(value) {
@@ -1378,6 +1390,7 @@ Answer:</textarea></label>
         $("resident-rl-export-both").disabled = disabled || !hasBoth;
         $("run-guided-demo").disabled = disabled || !hasWorkspace;
         $("demo-defaults").disabled = disabled;
+        $("strong-rl-defaults").disabled = disabled;
         $("reset-demo-log").disabled = disabled;
       }
 
@@ -1894,6 +1907,7 @@ Answer:</textarea></label>
       $("resident-rl-export-both").onclick = () => handle(exportRlBoth);
       $("run-guided-demo").onclick = () => handle(runGuidedDemo);
       $("demo-defaults").onclick = applyDemoDefaults;
+      $("strong-rl-defaults").onclick = applyStrongRlDefaults;
       $("reset-demo-log").onclick = () => {
         state.demoEvents = [];
         state.demoOutputs = null;

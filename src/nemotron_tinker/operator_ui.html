@@ -714,17 +714,17 @@
           <div class="steps">
             <div id="step-1" class="step active"><b>1</b>Pick a workspace.</div>
             <div id="step-2" class="step"><b>2</b>Create Atlas and Borealis adapters.</div>
-            <div id="step-3" class="step"><b>3</b>Train each adapter toward its goal answer.</div>
-            <div id="step-4" class="step"><b>4</b>Sample and compare the learned behaviors.</div>
+            <div id="step-3" class="step"><b>3</b>Sample both adapters before or after training.</div>
+            <div id="step-4" class="step"><b>4</b>Train each adapter, then sample again to compare.</div>
           </div>
           <div class="summary-card">
             <strong>Goal</strong>
-            <span class="tiny">Atlas should answer map and route prompts. Borealis should answer weather and aurora prompts. The SDK is just the client layer used to send those SFT jobs.</span>
+            <span class="tiny">Atlas should answer map and route prompts. Borealis should answer weather and aurora prompts. Sample before SFT to see the baseline, then train and sample again.</span>
           </div>
           <div class="big-actions">
             <button id="create-run" class="primary">Create 2 LoRA Adapters</button>
-            <button id="train-both" class="primary">Train Both Toward Goals</button>
             <button id="sample-both" class="blue">Sample Both</button>
+            <button id="train-both" class="primary">Train Both Toward Goals</button>
           </div>
           <div id="train-progress" class="progress-wrap">
             <div class="progress-bar"><div id="train-progress-fill" class="progress-fill"></div></div>
@@ -1360,8 +1360,8 @@ Answer:</textarea></label>
 
         setStep("step-1", hasWorkspace, !hasWorkspace);
         setStep("step-2", hasBoth, hasWorkspace && !hasBoth);
-        setStep("step-3", trainedBoth, hasBoth && !trainedBoth);
-        setStep("step-4", false, trainedBoth);
+        setStep("step-3", hasBoth, hasBoth);
+        setStep("step-4", trainedBoth, hasBoth && !trainedBoth);
         if (state.busy && state.busy.stepId) $(state.busy.stepId).className = "step busy";
 
         const disabled = Boolean(state.busy);

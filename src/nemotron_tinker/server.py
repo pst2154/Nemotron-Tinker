@@ -86,6 +86,7 @@ class TextSFTDatumRequest(BaseModel):
     prompt: str
     completion: str
     max_tokens: int = 64
+    use_chat_template: bool = False
 
 
 class CreateRunRequest(BaseModel):
@@ -171,6 +172,7 @@ class SampleRequest(BaseModel):
     top_p: float = 0.95
     do_sample: bool = True
     return_logprobs: bool = False
+    use_chat_template: bool = False
 
 
 class TrainStepsRequest(BaseModel):
@@ -457,6 +459,29 @@ def _sampling_from_request(request: SampleRequest) -> SamplingParams:
         top_p=request.top_p,
         do_sample=request.do_sample,
         return_logprobs=request.return_logprobs,
+    )
+
+
+def _apply_chat_template_or_raise(
+    tokenizer, messages: list[dict[str, str]], *, tokenize: bool, add_generation_prompt: bool
+):
+    apply_chat_template = getattr(tokenizer, "apply_chat_template", None)
+    if apply_chat_template is None:
+        raise HTTPException(status_code=400, detail="Tokenizer does not provide apply_chat_template().")
+    try:
+        return apply_chat_template(messages, tokenize=tokenize, add_generation_prompt=add_generation_prompt)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Tokenizer chat template failed: {exc}") from exc
+
+
+def _sample_prompt_from_request(tokenizer, request: SampleRequest) -> str:
+    if not request.use_chat_template:
+        return request.prompt
+    return _apply_chat_template_or_raise(
+        tokenizer,
+        [{"role": "user", "content": request.prompt}],
+        tokenize=False,
+        add_generation_prompt=True,
     )
 
 
@@ -1261,9 +1286,26 @@ def create_app(
 
     @app.post("/datasets/sft_datum", response_model=DatumRequest)
     def tokenize_sft_datum(request: TextSFTDatumRequest) -> DatumRequest:
-        prompt_tokens = service.tokenizer.encode(request.prompt, add_special_tokens=True)
-        completion_tokens = service.tokenizer.encode(request.completion, add_special_tokens=False)
-        tokens = (prompt_tokens + completion_tokens)[: request.max_tokens]
+        if request.use_chat_template:
+            prompt_tokens = _apply_chat_template_or_raise(
+                service.tokenizer,
+                [{"role": "user", "content": request.prompt}],
+                tokenize=True,
+                add_generation_prompt=True,
+            )
+            tokens = _apply_chat_template_or_raise(
+                service.tokenizer,
+                [
+                    {"role": "user", "content": request.prompt},
+                    {"role": "assistant", "content": request.completion.strip()},
+                ],
+                tokenize=True,
+                add_generation_prompt=False,
+            )[: request.max_tokens]
+        else:
+            prompt_tokens = service.tokenizer.encode(request.prompt, add_special_tokens=True)
+            completion_tokens = service.tokenizer.encode(request.completion, add_special_tokens=False)
+            tokens = (prompt_tokens + completion_tokens)[: request.max_tokens]
         if len(tokens) < 2:
             raise HTTPException(status_code=400, detail="Text SFT datum needs at least two tokens")
         input_tokens = tokens[:-1]
@@ -2535,7 +2577,8 @@ def create_app(
         def op() -> SampleResponseModel:
             client = get_run(run_id)
             try:
-                output = service.sample(client.adapter_id, request.prompt, _sampling_from_request(request)).result()
+                prompt = _sample_prompt_from_request(service.tokenizer, request)
+                output = service.sample(client.adapter_id, prompt, _sampling_from_request(request)).result()
                 record_worker_operation("sample", [run_id], {"max_new_tokens": request.max_new_tokens})
                 record = mark_run(run_id, status="ready")
                 return SampleResponseModel(run=record, output=asdict(output))

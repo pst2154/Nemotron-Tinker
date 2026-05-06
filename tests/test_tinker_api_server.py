@@ -61,6 +61,14 @@ class FakeTokenizer:
             return [1] + tokens
         return tokens
 
+    def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=False):
+        text = "".join(f"<{message['role']}>{message['content']}" for message in messages)
+        if add_generation_prompt:
+            text += "<assistant>"
+        if tokenize:
+            return self.encode(text, add_special_tokens=True)
+        return text
+
 
 class FakeMixedLoraServiceClient:
     def __init__(self, **kwargs):
@@ -647,6 +655,27 @@ def test_mixed_lora_server_tokenizes_text_sft_datum(monkeypatch, tmp_path):
     assert len(input_tokens) == len(target_tokens)
     assert 0.0 in weights
     assert 1.0 in weights
+
+
+def test_mixed_lora_server_tokenizes_chat_template_sft_datum(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
+    app = server.create_app(base_model="fake-model", scratch_dir=tmp_path)
+    client = fastapi_testclient.TestClient(app)
+
+    response = client.post(
+        "/datasets/sft_datum",
+        json={"prompt": "Prompt:", "completion": " answer.", "max_tokens": 128, "use_chat_template": True},
+    )
+
+    datum = response.json()
+    weights = datum["loss_fn_inputs"]["weights"]
+    target_tokens = datum["loss_fn_inputs"]["target_tokens"]["tokens"]
+    input_tokens = datum["model_input"]["tokens"]
+    assert response.status_code == 200
+    assert input_tokens[1:] == target_tokens[:-1]
+    assert len(weights) == len(target_tokens)
+    assert weights.count(0.0) > weights.count(1.0)
+    assert weights[-1] == 1.0
 
 
 def test_mixed_lora_server_reports_supervised_worker_processes(monkeypatch, tmp_path):

@@ -616,6 +616,7 @@ Answer:</textarea></label>
             <label>Max train tokens<input id="max-tokens" type="number" min="8" value="64" /></label>
           </div>
           <div class="three">
+            <label class="check"><input id="use-chat-template" type="checkbox" checked /> Use chat template</label>
             <label>Sample output tokens<input id="sample-tokens" type="number" min="1" value="20" /></label>
             <label class="check"><input id="sample-first-sentence" type="checkbox" checked /> Show first answer sentence</label>
           </div>
@@ -820,12 +821,12 @@ logger.wandb_enabled=false</textarea></label>
           return this.call("/runs", { method: "POST", body: JSON.stringify({ name }) });
         }
 
-        sftDatum(prompt, completion, maxTokens) {
+        sftDatum(prompt, completion, maxTokens, useChatTemplate) {
           return this.call(
             "/datasets/sft_datum",
             {
               method: "POST",
-              body: JSON.stringify({ prompt, completion, max_tokens: maxTokens }),
+              body: JSON.stringify({ prompt, completion, max_tokens: maxTokens, use_chat_template: useChatTemplate }),
             },
             false,
           );
@@ -847,10 +848,16 @@ logger.wandb_enabled=false</textarea></label>
           return this.call(`/jobs/${jobId}`);
         }
 
-        sample(runId, prompt, maxNewTokens) {
+        sample(runId, prompt, maxNewTokens, useChatTemplate) {
           return this.call(`/runs/${runId}/sample`, {
             method: "POST",
-            body: JSON.stringify({ prompt, max_new_tokens: maxNewTokens, do_sample: false, temperature: 0.0 }),
+            body: JSON.stringify({
+              prompt,
+              max_new_tokens: maxNewTokens,
+              do_sample: false,
+              temperature: 0.0,
+              use_chat_template: useChatTemplate,
+            }),
           });
         }
 
@@ -1227,7 +1234,7 @@ logger.wandb_enabled=false</textarea></label>
       }
 
       async function sftDatum(prompt, completion) {
-        return sdk.sftDatum(prompt, completion, Number($("max-tokens").value));
+        return sdk.sftDatum(prompt, completion, Number($("max-tokens").value), $("use-chat-template").checked);
       }
 
       async function batches() {
@@ -1281,7 +1288,10 @@ logger.wandb_enabled=false</textarea></label>
       function visibleText(result, prompt) {
         if (!result.output || !result.output.text) return JSON.stringify(result, null, 2);
         const text = result.output.text;
-        let generated = text.startsWith(prompt) ? text.slice(prompt.length).trimStart() : text;
+        let generated = text.includes(prompt) ? text.slice(text.lastIndexOf(prompt) + prompt.length).trimStart() : text;
+        generated = generated
+          .replace(/^(<\|im_end\|>|<\|im_start\|>|<assistant>|assistant|Assistant|:|\s)+/g, "")
+          .trimStart();
         if ($("sample-first-sentence").checked) {
           const match = generated.match(/^([\s\S]*?[.!?])(?:\s|$)/);
           if (match) generated = match[1];
@@ -1302,7 +1312,12 @@ logger.wandb_enabled=false</textarea></label>
         setBusy(`sample-${which}`, "Sampling...", buttonId, "step-4", outputId);
         const prompt = which === "atlas" ? $("atlas-prompt").value : $("borealis-prompt").value;
         try {
-          const result = await sdk.sample(run.run_id, prompt, Number($("sample-tokens").value));
+          const result = await sdk.sample(
+            run.run_id,
+            prompt,
+            Number($("sample-tokens").value),
+            $("use-chat-template").checked,
+          );
           $(outputId).innerHTML =
             `<h3>${which[0].toUpperCase() + which.slice(1)} output</h3>${visibleText(result, prompt)}`;
           raw(result);

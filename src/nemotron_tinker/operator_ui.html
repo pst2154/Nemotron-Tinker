@@ -826,7 +826,13 @@ logger.wandb_enabled=false</textarea></label>
             "/datasets/sft_datum",
             {
               method: "POST",
-              body: JSON.stringify({ prompt, completion, max_tokens: maxTokens, use_chat_template: useChatTemplate }),
+              body: JSON.stringify({
+                prompt,
+                completion,
+                max_tokens: maxTokens,
+                use_chat_template: useChatTemplate,
+                disable_thinking: true,
+              }),
             },
             false,
           );
@@ -857,6 +863,7 @@ logger.wandb_enabled=false</textarea></label>
               do_sample: false,
               temperature: 0.0,
               use_chat_template: useChatTemplate,
+              disable_thinking: true,
             }),
           });
         }
@@ -1290,7 +1297,10 @@ logger.wandb_enabled=false</textarea></label>
         const text = result.output.text;
         let generated = text.includes(prompt) ? text.slice(text.lastIndexOf(prompt) + prompt.length).trimStart() : text;
         generated = generated
-          .replace(/^(<\|im_end\|>|<\|im_start\|>|<assistant>|assistant|Assistant|:|\s)+/g, "")
+          .replace(
+            /^(<\|im_end\|>|<\|im_start\|>|<assistant>|<think><\/think>|<think>|<\/think>|assistant|Assistant|:|\s)+/g,
+            "",
+          )
           .trimStart();
         if ($("sample-first-sentence").checked) {
           const match = generated.match(/^([\s\S]*?[.!?])(?:\s|$)/);

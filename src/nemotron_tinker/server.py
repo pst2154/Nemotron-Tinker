@@ -87,6 +87,7 @@ class TextSFTDatumRequest(BaseModel):
     completion: str
     max_tokens: int = 64
     use_chat_template: bool = False
+    disable_thinking: bool = True
 
 
 class CreateRunRequest(BaseModel):
@@ -173,6 +174,7 @@ class SampleRequest(BaseModel):
     do_sample: bool = True
     return_logprobs: bool = False
     use_chat_template: bool = False
+    disable_thinking: bool = True
 
 
 class TrainStepsRequest(BaseModel):
@@ -463,13 +465,26 @@ def _sampling_from_request(request: SampleRequest) -> SamplingParams:
 
 
 def _apply_chat_template_or_raise(
-    tokenizer, messages: list[dict[str, str]], *, tokenize: bool, add_generation_prompt: bool
+    tokenizer,
+    messages: list[dict[str, str]],
+    *,
+    tokenize: bool,
+    add_generation_prompt: bool,
+    disable_thinking: bool = True,
 ):
     apply_chat_template = getattr(tokenizer, "apply_chat_template", None)
     if apply_chat_template is None:
         raise HTTPException(status_code=400, detail="Tokenizer does not provide apply_chat_template().")
+    kwargs = {"enable_thinking": False} if disable_thinking else {}
     try:
-        output = apply_chat_template(messages, tokenize=tokenize, add_generation_prompt=add_generation_prompt)
+        output = apply_chat_template(messages, tokenize=tokenize, add_generation_prompt=add_generation_prompt, **kwargs)
+    except TypeError as exc:
+        if "enable_thinking" not in str(exc):
+            raise HTTPException(status_code=400, detail=f"Tokenizer chat template failed: {exc}") from exc
+        try:
+            output = apply_chat_template(messages, tokenize=tokenize, add_generation_prompt=add_generation_prompt)
+        except Exception as retry_exc:
+            raise HTTPException(status_code=400, detail=f"Tokenizer chat template failed: {retry_exc}") from retry_exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Tokenizer chat template failed: {exc}") from exc
     if not tokenize:
@@ -491,6 +506,7 @@ def _sample_prompt_from_request(tokenizer, request: SampleRequest) -> str:
         [{"role": "user", "content": request.prompt}],
         tokenize=False,
         add_generation_prompt=True,
+        disable_thinking=request.disable_thinking,
     )
 
 
@@ -1301,6 +1317,7 @@ def create_app(
                 [{"role": "user", "content": request.prompt}],
                 tokenize=True,
                 add_generation_prompt=True,
+                disable_thinking=request.disable_thinking,
             )
             tokens = _apply_chat_template_or_raise(
                 service.tokenizer,
@@ -1310,6 +1327,7 @@ def create_app(
                 ],
                 tokenize=True,
                 add_generation_prompt=False,
+                disable_thinking=request.disable_thinking,
             )[: request.max_tokens]
         else:
             prompt_tokens = service.tokenizer.encode(request.prompt, add_special_tokens=True)

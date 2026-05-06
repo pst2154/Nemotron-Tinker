@@ -1654,13 +1654,20 @@ def create_app(
             rl_job_store.save(rl_jobs)
         return job
 
-    def enqueue_host_rl_job(job: RLJobRecord) -> None:
+    def refresh_rl_jobs_from_store() -> None:
+        """Refresh RL job metadata written by an external host launcher."""
+        stored_jobs = rl_job_store.load()
+        if stored_jobs:
+            rl_jobs.update(stored_jobs)
+
+    def enqueue_host_rl_job(job: RLJobRecord, request: RLJobRequest) -> None:
         queue_dir = pathlib.Path(scratch_dir) / "tinker_api" / "host_rl_queue"
         queue_dir.mkdir(parents=True, exist_ok=True)
         payload = {
             "job_id": job.job_id,
             "command": job.command,
             "repo_dir": job.repo_dir,
+            "host_cwd": request.docker_repo_dir or job.repo_dir,
             "log_path": job.log_path,
             "max_runtime_seconds": job.max_runtime_seconds,
             "metadata_backend": metadata_backend,
@@ -1673,6 +1680,7 @@ def create_app(
 
     def get_rl_job_record(job_id: str) -> RLJobRecord:
         with rl_jobs_lock:
+            refresh_rl_jobs_from_store()
             job = rl_jobs.get(job_id)
             if job is None:
                 raise HTTPException(status_code=404, detail=f"Unknown rl_job_id: {job_id}")
@@ -2258,6 +2266,7 @@ def create_app(
     @app.get("/rl/jobs", response_model=list[RLJobRecord])
     def list_rl_jobs(http_request: Request) -> list[RLJobRecord]:
         with rl_jobs_lock:
+            refresh_rl_jobs_from_store()
             return [job for job in rl_jobs.values() if visible_to_request(job.tenant_id, http_request)]
 
     @app.get("/rl/jobs/{job_id}", response_model=RLJobRecord)
@@ -2318,7 +2327,7 @@ def create_app(
             store_idempotent_response("rl_jobs", request.idempotency_key, request, response)
             return response
         if request.launcher == "host":
-            enqueue_host_rl_job(job)
+            enqueue_host_rl_job(job, request)
             store_idempotent_response("rl_jobs", request.idempotency_key, request, response)
             return response
         if request.run_async:

@@ -239,6 +239,44 @@ def test_mixed_lora_server_prepares_nemo_rl_docker_command(monkeypatch, tmp_path
     assert client.get(f"/rl/jobs/{job['job_id']}/logs").json()["text"] == ""
 
 
+def test_mixed_lora_server_queues_host_nemo_rl_job_and_refreshes_status(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
+    rl_repo = tmp_path / "RL"
+    (rl_repo / "examples" / "configs").mkdir(parents=True)
+    (rl_repo / "examples" / "run_grpo.py").write_text("print('queued for host')\n", encoding="utf-8")
+    (rl_repo / "examples" / "configs" / "grpo_math_1B.yaml").write_text("grpo: {}\n", encoding="utf-8")
+    app = server.create_app(base_model="fake-model", scratch_dir=tmp_path, rl_repo_dir=str(rl_repo))
+    client = fastapi_testclient.TestClient(app)
+
+    response = client.post(
+        "/rl/jobs",
+        json={
+            "name": "host-run",
+            "launcher": "host",
+            "runner": "python",
+            "docker_repo_dir": str(rl_repo),
+            "docker_container_repo_dir": "/opt/nemo-rl",
+        },
+    ).json()
+
+    job = response["job"]
+    assert job["status"] == "queued"
+    queued_path = tmp_path / "tinker_api" / "host_rl_queue" / f"{job['job_id']}.json"
+    queued_payload = json.loads(queued_path.read_text(encoding="utf-8"))
+    assert queued_payload["host_cwd"] == str(rl_repo)
+    assert queued_payload["command"][:2] == ["docker", "run"]
+
+    store = server.SQLiteStore(tmp_path / "tinker_api" / "metadata.sqlite3", "rl_jobs", server.RLJobRecord)
+    records = store.load()
+    records[job["job_id"]].status = "running"
+    records[job["job_id"]].pid = 12345
+    store.save(records)
+
+    refreshed = client.get(f"/rl/jobs/{job['job_id']}").json()
+    assert refreshed["status"] == "running"
+    assert refreshed["pid"] == 12345
+
+
 def test_mixed_lora_server_prepares_container_native_nemo_rl_docker_command(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
     rl_repo = tmp_path / "RL"

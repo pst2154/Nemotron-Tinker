@@ -79,6 +79,9 @@ def run_job(request_path: pathlib.Path) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     command = [str(item) for item in payload["command"]]
     max_runtime_seconds = payload.get("max_runtime_seconds")
+    cwd = pathlib.Path(payload.get("host_cwd") or payload["repo_dir"])
+    if not cwd.is_dir():
+        cwd = pathlib.Path("/")
 
     try:
         mark(metadata_path, job_id, status="running")
@@ -86,7 +89,7 @@ def run_job(request_path: pathlib.Path) -> None:
             log_fp.write(("Host launcher command: " + " ".join(command) + "\n\n").encode("utf-8"))
             process = subprocess.Popen(
                 command,
-                cwd=payload["repo_dir"],
+                cwd=cwd,
                 stdout=log_fp,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,

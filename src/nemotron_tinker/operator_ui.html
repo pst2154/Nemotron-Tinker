@@ -311,6 +311,14 @@
         display: grid;
       }
 
+      .progress-wrap.live .progress-bar {
+        background:
+          linear-gradient(90deg, rgba(67, 162, 255, 0.36) 25%, transparent 25%, transparent 50%, rgba(67, 162, 255, 0.36) 50%, rgba(67, 162, 255, 0.36) 75%, transparent 75%),
+          #0b0d10;
+        background-size: 48px 48px;
+        animation: progressStripe 800ms linear infinite;
+      }
+
       .progress-bar {
         width: 100%;
         height: 22px;
@@ -325,6 +333,15 @@
         height: 100%;
         background: var(--blue);
         transition: width 160ms ease;
+      }
+
+      @keyframes progressStripe {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 48px 0;
+        }
       }
 
       .two {
@@ -742,6 +759,7 @@ logger.wandb_enabled=false</textarea></label>
         busy: null,
         buttonLabels: {},
         mode: "sft",
+        activeTrainJobId: null,
       };
       const $ = (id) => document.getElementById(id);
 
@@ -912,12 +930,18 @@ logger.wandb_enabled=false</textarea></label>
         render();
       }
 
-      function setTrainProgress(step, total, status = "running") {
+      function nextPaint() {
+        return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
+
+      function setTrainProgress(step, total, status = "running", detail = "") {
         const safeTotal = Math.max(Number(total) || 0, 1);
         const safeStep = Math.max(0, Math.min(Number(step) || 0, safeTotal));
-        $("train-progress").className = "progress-wrap show";
+        const isLive = !["succeeded", "failed", "canceled"].includes(status);
+        $("train-progress").className = `progress-wrap show${isLive ? " live" : ""}`;
         $("train-progress-fill").style.width = `${Math.round((safeStep / safeTotal) * 100)}%`;
-        $("train-progress-label").textContent = `Training: ${safeStep} / ${total || "?"} (${status})`;
+        const suffix = detail ? ` - ${detail}` : "";
+        $("train-progress-label").textContent = `Training: ${safeStep} / ${total || "?"} (${status})${suffix}`;
       }
 
       function hideTrainProgress() {
@@ -1178,23 +1202,35 @@ logger.wandb_enabled=false</textarea></label>
 
       async function trainBoth() {
         setBusy("train", "Training...", "train-both", "step-3");
+        state.activeTrainJobId = null;
         try {
-          setTrainProgress(0, Number($("steps").value), "queued");
-          const submitted = await sdk.trainSteps(await batches(), Number($("steps").value), Number($("lr").value));
+          const totalSteps = Number($("steps").value);
+          setTrainProgress(0, totalSteps, "preparing", "tokenizing the two demo datasets");
+          await nextPaint();
+          const trainBatches = await batches();
+          setTrainProgress(0, totalSteps, "submitting", "sending async training job");
+          await nextPaint();
+          const submitted = await sdk.trainSteps(trainBatches, totalSteps, Number($("lr").value));
           let job = submitted.job;
+          state.activeTrainJobId = job.job_id;
           raw(submitted);
           while (!["succeeded", "failed", "canceled"].includes(job.status)) {
             const progress = job.progress || {};
-            setTrainProgress(progress.step || 0, progress.total_steps || $("steps").value, job.status);
+            const step = progress.step || 0;
+            const total = progress.total_steps || totalSteps;
+            setTrainProgress(step, total, job.status, step < total ? "GPU is working on the current step" : "finalizing");
             await new Promise((resolve) => setTimeout(resolve, 1000));
+            state.runs = await sdk.runs();
             job = await sdk.job(job.job_id);
+            render();
           }
           const progress = job.progress || {};
-          setTrainProgress(progress.step || 0, progress.total_steps || $("steps").value, job.status);
+          setTrainProgress(progress.step || 0, progress.total_steps || totalSteps, job.status, "done");
           raw(job);
           if (job.status !== "succeeded") throw new Error(`Training ${job.status}: ${job.error || "no details"}`);
           toast("Training finished.");
         } finally {
+          state.activeTrainJobId = null;
           clearBusy();
           await refresh();
           setTimeout(hideTrainProgress, 1800);

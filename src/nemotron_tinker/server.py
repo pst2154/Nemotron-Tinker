@@ -24,6 +24,7 @@ import subprocess
 import threading
 import time
 import uuid
+import zipfile
 from collections import deque
 from concurrent.futures import Future
 from contextlib import asynccontextmanager
@@ -44,6 +45,7 @@ from nemo_automodel.shared.import_utils import safe_import_from
 HAS_FASTAPI, FastAPI = safe_import_from("fastapi", "FastAPI")
 _, HTTPException = safe_import_from("fastapi", "HTTPException")
 _, Request = safe_import_from("fastapi", "Request")
+_, FileResponse = safe_import_from("fastapi.responses", "FileResponse")
 _, HTMLResponse = safe_import_from("fastapi.responses", "HTMLResponse")
 _, JSONResponse = safe_import_from("fastapi.responses", "JSONResponse")
 HAS_PYDANTIC, BaseModel = safe_import_from("pydantic", "BaseModel")
@@ -136,6 +138,13 @@ class SaveRequest(BaseModel):
     """Save request."""
 
     name: str
+    idempotency_key: Optional[str] = None
+
+
+class ExportRequest(BaseModel):
+    """Save and export request."""
+
+    name: Optional[str] = None
     idempotency_key: Optional[str] = None
 
 
@@ -2398,6 +2407,43 @@ def create_app(
                 raise
 
         return executor.submit(lambda: service_metrics.observe("save", op)).result()
+
+    @app.post("/runs/{run_id}/export")
+    def export_run(run_id: str, request: ExportRequest, http_request: Request) -> FileResponse:
+        """Save one LoRA adapter and return a zip archive for browser download."""
+        record = get_authorized_record(run_id, http_request)
+        enforce_tenant_rate_limit(record.tenant_id, "export")
+        export_name = request.name or f"{record.name or run_id}-lora"
+
+        def safe_name(value: str) -> str:
+            return "".join(char if char.isalnum() or char in {"-", "_", "."} else "-" for char in value).strip("-")
+
+        def op() -> tuple[pathlib.Path, str]:
+            client = get_run(run_id)
+            try:
+                mark_run(run_id, status="saving")
+                output = client.save_state(export_name).result()
+                record_worker_operation("export", [run_id], {"name": export_name})
+                record = mark_run(run_id, status="ready")
+                record.last_checkpoint_path = output.path
+                run_store.save(records)
+
+                checkpoint_dir = pathlib.Path(output.path)
+                archive_dir = pathlib.Path(scratch_dir) / "tinker_api" / "exports"
+                archive_dir.mkdir(parents=True, exist_ok=True)
+                filename = f"{safe_name(export_name) or run_id}.zip"
+                archive_path = archive_dir / filename
+                with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                    for path in sorted(checkpoint_dir.rglob("*")):
+                        if path.is_file():
+                            archive.write(path, arcname=path.relative_to(checkpoint_dir))
+                return archive_path, filename
+            except Exception as exc:
+                mark_run_failed(run_id, exc)
+                raise
+
+        archive_path, filename = executor.submit(lambda: service_metrics.observe("export", op)).result()
+        return FileResponse(archive_path, media_type="application/zip", filename=filename)
 
     @app.post("/runs/{run_id}/detach")
     def detach_run(run_id: str, request: DetachRunRequest, http_request: Request) -> DetachRunResponse:

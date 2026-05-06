@@ -672,6 +672,7 @@ Answer:</textarea></label>
             <div class="advanced">
               <button id="sample-both">Sample Both</button>
               <button id="save-both">Save Both</button>
+              <button id="export-both" class="blue">Export LoRAs</button>
               <button id="detach-both" class="warn">Detach Both</button>
               <pre id="raw" class="sample">Raw responses show up here.</pre>
             </div>
@@ -865,6 +866,25 @@ logger.wandb_enabled=false</textarea></label>
           return this.call(`/runs/${runId}/save`, { method: "POST", body: JSON.stringify({ name }) });
         }
 
+        async export(runId, name) {
+          const response = await fetch(`${this.root()}/runs/${runId}/export`, {
+            method: "POST",
+            headers: this.headers(true),
+            body: JSON.stringify({ name }),
+          });
+          if (!response.ok) {
+            const text = await response.text();
+            let payload = {};
+            try {
+              payload = text ? JSON.parse(text) : {};
+            } catch (_error) {
+              payload = {};
+            }
+            throw new Error(`${response.status} ${payload.detail || text}`);
+          }
+          return response.blob();
+        }
+
         detach(runId) {
           return this.call(`/runs/${runId}/detach`, { method: "POST", body: "{}" });
         }
@@ -1032,6 +1052,7 @@ logger.wandb_enabled=false</textarea></label>
         $("sample-borealis").disabled = disabled || !b;
         $("sample-both").disabled = disabled || !hasBoth;
         $("save-both").disabled = disabled || !hasBoth;
+        $("export-both").disabled = disabled || !hasBoth;
         $("detach-both").disabled = disabled || !hasBoth;
         $("rl-dry-run").disabled = disabled;
         $("rl-launch").disabled = disabled;
@@ -1115,6 +1136,18 @@ logger.wandb_enabled=false</textarea></label>
           $("rl-output").textContent = `${response.job.command.join(" ")}\n\n${JSON.stringify(response.job, null, 2)}`;
           toast(dryRun ? "RL command prepared." : "RL job launched.");
           await refreshRlOutput(response.job.job_id);
+        } catch (error) {
+          $("rl-output").textContent = [
+            "RL is not configured yet.",
+            "",
+            String(error.message || error),
+            "",
+            "This panel needs a NeMo-RL checkout mounted into the service container.",
+            "Start the service with --rl-repo-dir /workspace/RL, or fill RL repo dir with a valid path visible to the service.",
+            "",
+            "For Docker launches, also set Docker host RL repo dir so the launched NeMo-RL container can mount that same checkout.",
+          ].join("\n");
+          throw error;
         } finally {
           clearBusy();
         }
@@ -1282,6 +1315,39 @@ logger.wandb_enabled=false</textarea></label>
         }
       }
 
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      async function exportBoth() {
+        setBusy("export", "Exporting...", "export-both");
+        const exported = [];
+        try {
+          if (atlas()) {
+            const blob = await sdk.export(atlas().run_id, "atlas-ui");
+            downloadBlob(blob, "atlas-ui.zip");
+            exported.push({ run_id: atlas().run_id, file: "atlas-ui.zip" });
+          }
+          if (borealis()) {
+            const blob = await sdk.export(borealis().run_id, "borealis-ui");
+            downloadBlob(blob, "borealis-ui.zip");
+            exported.push({ run_id: borealis().run_id, file: "borealis-ui.zip" });
+          }
+          raw({ exported });
+          toast("LoRA exports downloaded.");
+          await refresh();
+        } finally {
+          clearBusy();
+        }
+      }
+
       async function detachBoth() {
         setBusy("detach", "Detaching...", "detach-both");
         const results = [];
@@ -1322,6 +1388,7 @@ logger.wandb_enabled=false</textarea></label>
         await sample("borealis");
       });
       $("save-both").onclick = () => handle(saveBoth);
+      $("export-both").onclick = () => handle(exportBoth);
       $("detach-both").onclick = () => handle(detachBoth);
       document.querySelectorAll("[data-mode]").forEach((button) => {
         button.onclick = () => setMode(button.dataset.mode);

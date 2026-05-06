@@ -527,7 +527,7 @@
         <div class="mode-list">
           <button class="mode active" data-mode="flywheel"><b>Flywheel</b><span>Data -> SFT -> RL -> eval -> inference.</span></button>
           <button class="mode" data-mode="sft"><b>Train Adapter</b><span>Create LoRAs and run SFT train_steps.</span></button>
-          <button class="mode" data-mode="rl"><b>RL + Eval</b><span>Rollouts, rewards, resident RL updates, or external NeMo-RL jobs.</span></button>
+          <button class="mode" data-mode="rl"><b>RL + Eval</b><span>Rollouts, rewards, resident RL updates, and sampling.</span></button>
         </div>
         <div class="summary-card">
           <strong>Current workspace</strong>
@@ -554,7 +554,7 @@
           </div>
           <div class="summary-card">
             <strong>Use case view</strong>
-            <span class="tiny">Gym is a rollout collector. Resident RL LoRA is the API path that trains the loaded adapter from rewards. NeMo-RL Launch starts a separate dedicated RL job in another process or container.</span>
+            <span class="tiny">Gym-style sampling collects rollouts from the loaded adapter. Resident RL LoRA scores those rollouts and trains the same adapter on the same loaded base model.</span>
           </div>
           <div class="big-actions">
             <button class="primary" data-mode-jump="sft">Go To SFT Training</button>
@@ -626,20 +626,19 @@ Answer:</textarea></label>
       <section data-panel="rl">
         <div class="section-head">
           <h2>RL + Evaluation Toolkit</h2>
-          <span class="tiny">One use case: collect rollouts, score them, then improve or launch RL.</span>
+          <span class="tiny">Collect rollouts, score them, improve the same resident adapter, then sample it.</span>
         </div>
         <div class="body">
           <div class="steps">
             <div class="step active"><b>1</b>Gym / API: collect policy rollouts with token logprobs.</div>
             <div class="step"><b>2</b>Reward: score completions with rules, verifiers, or evals.</div>
             <div class="step"><b>3</b>Resident RL LoRA: train this service's adapter with RL loss inputs.</div>
-            <div class="step"><b>4</b>NeMo-RL: launch a dedicated GRPO job when the run should own the GPUs.</div>
+            <div class="step"><b>4</b>Sample: test the same adapter after the RL update.</div>
           </div>
           <div class="summary-card">
-            <strong>Which path do I use?</strong>
-            <span class="tiny">Use resident RL LoRA for the Tinker flywheel on small or mid-size adapters. Use Gym/API to collect rollout data. Use NeMo-RL when you want a separate dedicated RL training job.</span>
+            <strong>Same model path only</strong>
+            <span class="tiny">This page only uses the resident Nemotron-Tinker model for rollout collection, RL updates, and sampling.</span>
           </div>
-          <pre class="sample">python scripts/run_recipe.py nemotron_rl_lora --base-url http://127.0.0.1:18082</pre>
         </div>
       </section>
 
@@ -670,7 +669,7 @@ Answer:</textarea></label>
         <div class="body">
           <div class="summary-card">
             <strong>Same base model path</strong>
-            <span class="tiny">This samples from the resident run, scores those completions, and submits train_steps back to that same run. No separate NeMo-RL container is launched.</span>
+            <span class="tiny">This samples from the resident run, scores those completions, and submits train_steps back to that same run.</span>
           </div>
           <div class="three">
             <label>Run name or id<input id="resident-rl-run" value="atlas" /></label>
@@ -687,6 +686,7 @@ Say exactly: use atlas for apples</textarea></label>
           </div>
           <div class="big-actions">
             <button id="resident-rl-train" class="primary">Run Resident RL</button>
+            <button id="resident-rl-sample" class="blue">Sample Resident Run</button>
           </div>
           <pre id="resident-rl-output" class="sample">Resident RL output appears here.</pre>
         </div>
@@ -715,74 +715,6 @@ Say exactly: use atlas for apples</textarea></label>
         </div>
       </section>
 
-      <section data-panel="rl">
-          <div class="section-head">
-            <h2>External NeMo-RL Job</h2>
-            <span class="tiny">Launch or dry-run a separate GRPO job from the Nemotron Tinker control plane.</span>
-          </div>
-        <div class="body">
-          <div class="summary-card">
-            <strong>Launch note</strong>
-            <span class="tiny">This does not train the resident Nemotron model in memory. It starts a separate NeMo-RL job, usually in its own container, and can run while SFT/inference stay online.</span>
-          </div>
-          <div class="two">
-            <label>RL repo dir<input id="rl-repo" value="" /></label>
-            <label>Config path<input id="rl-config" value="examples/configs/grpo_math_1B.yaml" /></label>
-          </div>
-          <div class="two">
-            <label>Docker host RL repo dir<input id="rl-docker-repo" value="" placeholder="optional: only if overriding container code" /></label>
-            <label>Docker container RL dir<input id="rl-docker-container-repo" value="/opt/nemo-rl" /></label>
-          </div>
-          <div class="two">
-            <label>Docker HF cache dir<input id="rl-docker-hf-cache" value="/home/scratch.asteiner/hf" placeholder="optional writable cache dir" /></label>
-            <label>Container HF cache dir<input id="rl-docker-container-hf-cache" value="/root/.cache/huggingface" /></label>
-          </div>
-          <div class="two">
-            <label>Docker output dir<input id="rl-docker-output" value="" placeholder="optional persistent output dir" /></label>
-            <label>Container output dir<input id="rl-docker-container-output" value="/workspace/rl_outputs" /></label>
-          </div>
-          <div class="four">
-            <label>Launcher<select id="rl-launcher"><option value="host">host worker</option><option value="docker">docker in API</option><option value="local">local in API</option></select></label>
-            <label>Runner<select id="rl-runner"><option value="python">python</option><option value="uv">uv</option></select></label>
-            <label>Container image<input id="rl-image" value="nvcr.io/nvidia/nemo-rl:v0.6.0" /></label>
-            <label>Job name<input id="rl-name" value="grpo-smoke" /></label>
-          </div>
-          <div class="two">
-            <label>Docker GPUs<input id="rl-docker-gpus" value="all" /></label>
-            <label>Max runtime seconds<input id="rl-max-runtime" type="number" min="1" value="1800" placeholder="optional" /></label>
-          </div>
-          <div class="four">
-            <label>Nodes<input id="rl-num-nodes" type="number" min="1" value="1" /></label>
-            <label>GPUs/node<input id="rl-gpus-per-node" type="number" min="1" value="1" /></label>
-            <label>TP<input id="rl-tp" type="number" min="1" value="" placeholder="1" /></label>
-            <label>PP<input id="rl-pp" type="number" min="1" value="" placeholder="1" /></label>
-          </div>
-          <div class="two">
-            <label>CP<input id="rl-cp" type="number" min="1" value="" placeholder="1" /></label>
-            <label>EP<input id="rl-ep" type="number" min="1" value="" placeholder="MoE only" /></label>
-          </div>
-          <label>Docker user<input id="rl-docker-user" value="" placeholder="optional: 140045:30" /></label>
-          <label>Hydra overrides<textarea id="rl-overrides">policy.dtensor_cfg.lora_cfg.enabled=true
-policy.dtensor_cfg.lora_cfg.dim=8
-policy.dtensor_cfg.lora_cfg.use_triton=false
-grpo.max_num_steps=2
-grpo.num_prompts_per_step=1
-grpo.num_generations_per_prompt=2
-policy.train_global_batch_size=2
-policy.train_micro_batch_size=1
-policy.generation_batch_size=2
-checkpointing.enabled=false
-logger.wandb_enabled=false</textarea></label>
-          <div class="big-actions">
-            <button id="rl-dry-run" class="blue">Show RL Command</button>
-            <button id="rl-launch" class="primary">Launch RL Job</button>
-            <button id="rl-refresh">Refresh RL</button>
-            <button id="rl-logs">Show Logs</button>
-            <button id="rl-cancel" class="warn">Cancel RL Job</button>
-          </div>
-          <pre id="rl-output" class="sample">RL job status appears here.</pre>
-        </div>
-      </section>
       </main>
     </div>
 
@@ -793,7 +725,6 @@ logger.wandb_enabled=false</textarea></label>
         health: null,
         runs: [],
         jobs: [],
-        rlJobs: [],
         metrics: null,
         toastTimer: null,
         busy: null,
@@ -841,10 +772,6 @@ logger.wandb_enabled=false</textarea></label>
 
         metrics() {
           return this.call("/metrics", {}, false);
-        }
-
-        rlJobs() {
-          return this.call("/rl/jobs");
         }
 
         createTrainingClient(name) {
@@ -945,17 +872,6 @@ logger.wandb_enabled=false</textarea></label>
           return this.call(`/runs/${runId}/detach`, { method: "POST", body: "{}" });
         }
 
-        submitRlJob(payload) {
-          return this.call("/rl/jobs", { method: "POST", body: JSON.stringify(payload) });
-        }
-
-        rlLogs(jobId) {
-          return this.call(`/rl/jobs/${jobId}/logs?tail_bytes=50000`);
-        }
-
-        cancelRlJob(jobId) {
-          return this.call(`/rl/jobs/${jobId}/cancel`, { method: "POST" });
-        }
       }
 
       function apiRoot() {
@@ -991,7 +907,7 @@ logger.wandb_enabled=false</textarea></label>
         const notes = {
           flywheel: "Follow the adapter flywheel: data, SFT, RL improvement, evaluation, inference.",
           sft: "SFT uses the SDK-style createTrainingClient, sftDatum, trainSteps, and sample loop.",
-          rl: "RL + Eval combines Gym rollout collection, resident RL LoRA updates, and optional dedicated NeMo-RL jobs.",
+          rl: "RL + Eval samples, scores, and trains the same resident adapter on the same loaded model.",
         };
         $("mode-note").textContent = notes[mode];
         $("next-action").textContent =
@@ -999,10 +915,7 @@ logger.wandb_enabled=false</textarea></label>
             ? "Start with data, then run SFT."
             : mode === "sft"
             ? "Create two training clients, train, then sample."
-            : "Collect rollouts, score them, then choose resident RL LoRA or NeMo-RL.";
-        if (mode === "rl") {
-          $("rl-output").textContent = "Use the NeMo-RL controls when you want a dedicated external RL job.";
-        }
+            : "Run Resident RL, then sample the same resident run.";
         render();
       }
 
@@ -1110,65 +1023,19 @@ logger.wandb_enabled=false</textarea></label>
         $("save-both").disabled = disabled || !hasBoth;
         $("export-both").disabled = disabled || !hasBoth;
         $("detach-both").disabled = disabled || !hasBoth;
-        $("rl-dry-run").disabled = disabled;
-        $("rl-launch").disabled = disabled;
-        $("rl-refresh").disabled = disabled;
-        $("rl-logs").disabled = disabled || state.rlJobs.length === 0;
+        $("resident-rl-train").disabled = disabled;
+        $("resident-rl-sample").disabled = disabled;
         $("gym-sample").disabled = disabled;
         $("gym-copy-note").disabled = disabled;
-        const latestRl = latestRlJob();
-        $("rl-cancel").disabled = disabled || !latestRl || !["queued", "running"].includes(latestRl.status);
       }
 
       async function refresh() {
         if (state.busy) return;
         state.health = await sdk.health();
-        if (state.health.rl_repo_dir && $("rl-repo").value === "") {
-          $("rl-repo").value = state.health.rl_repo_dir;
-        }
         state.runs = await sdk.runs();
         state.jobs = await sdk.jobs();
-        state.rlJobs = await sdk.rlJobs();
         state.metrics = await sdk.metrics();
         render();
-      }
-
-      function rlPayload(dryRun) {
-        const optionalInt = (id) => {
-          const value = $(id).value.trim();
-          return value ? Number(value) : null;
-        };
-        return {
-          name: $("rl-name").value.trim() || null,
-          repo_dir: $("rl-repo").value.trim() || null,
-          config_path: $("rl-config").value.trim(),
-          launcher: $("rl-launcher").value,
-          runner: $("rl-runner").value,
-          num_nodes: optionalInt("rl-num-nodes"),
-          gpus_per_node: optionalInt("rl-gpus-per-node"),
-          tensor_parallel_size: optionalInt("rl-tp"),
-          pipeline_parallel_size: optionalInt("rl-pp"),
-          context_parallel_size: optionalInt("rl-cp"),
-          expert_parallel_size: optionalInt("rl-ep"),
-          container_image: $("rl-image").value.trim(),
-          docker_gpus: $("rl-docker-gpus").value.trim() || "all",
-          max_runtime_seconds: optionalInt("rl-max-runtime"),
-          docker_repo_dir: $("rl-docker-repo").value.trim() || null,
-          docker_container_repo_dir: $("rl-docker-container-repo").value.trim() || "/opt/nemo-rl",
-          docker_hf_cache_dir: $("rl-docker-hf-cache").value.trim() || null,
-          docker_container_hf_cache_dir:
-            $("rl-docker-container-hf-cache").value.trim() || "/root/.cache/huggingface",
-          docker_output_dir: $("rl-docker-output").value.trim() || null,
-          docker_container_output_dir: $("rl-docker-container-output").value.trim() || "/workspace/rl_outputs",
-          docker_user: $("rl-docker-user").value.trim() || null,
-          dry_run: dryRun,
-          run_async: true,
-          overrides: $("rl-overrides").value.split(/\n+/).map((line) => line.trim()).filter(Boolean),
-        };
-      }
-
-      function latestRlJob() {
-        return state.rlJobs[state.rlJobs.length - 1];
       }
 
       function resolveRun(value) {
@@ -1215,58 +1082,22 @@ logger.wandb_enabled=false</textarea></label>
         }
       }
 
-      async function refreshRlOutput(jobId = null) {
-        state.rlJobs = await sdk.rlJobs();
-        const job = jobId ? state.rlJobs.find((item) => item.job_id === jobId) : latestRlJob();
-        if (!job) {
-          $("rl-output").textContent = "No RL jobs yet.";
-          render();
-          return null;
-        }
-        $("rl-output").textContent = JSON.stringify(job, null, 2);
-        render();
-        return job;
-      }
-
-      async function submitRlJob(dryRun) {
-        setBusy("rl", dryRun ? "Preparing..." : "Launching...", dryRun ? "rl-dry-run" : "rl-launch");
+      async function sampleResidentRl() {
+        setBusy("resident-sample", "Sampling...", "resident-rl-sample");
         try {
-          const response = await sdk.submitRlJob(rlPayload(dryRun));
-          raw(response);
-          $("rl-output").textContent = `${response.job.command.join(" ")}\n\n${JSON.stringify(response.job, null, 2)}`;
-          toast(dryRun ? "RL command prepared." : "RL job launched.");
-          await refreshRlOutput(response.job.job_id);
-        } catch (error) {
-          $("rl-output").textContent = [
-            "RL is not configured yet.",
-            "",
-            String(error.message || error),
-            "",
-            "This panel needs a NeMo-RL checkout mounted into the service container.",
-            "Start the service with --rl-repo-dir /workspace/RL, or fill RL repo dir with a valid path visible to the service.",
-            "",
-            "For Docker launches, also set Docker host RL repo dir so the launched NeMo-RL container can mount that same checkout.",
-          ].join("\n");
-          throw error;
+          await refresh();
+          const run = resolveRun($("resident-rl-run").value);
+          const prompt = $("resident-rl-prompts").value.split(/\n+/).map((line) => line.trim()).filter(Boolean)[0];
+          if (!prompt) throw new Error("Type at least one Resident RL prompt first.");
+          const result = await sdk.sample(run.run_id, prompt, Number($("resident-rl-tokens").value), false);
+          const text = visibleText(result, prompt);
+          $("resident-rl-output").textContent = `${run.name || run.run_id} output\n${text}\n\n${JSON.stringify(result, null, 2)}`;
+          raw(result);
+          toast("Sampled resident run.");
         } finally {
           clearBusy();
+          await refresh();
         }
-      }
-
-      async function showRlLogs() {
-        const job = latestRlJob();
-        if (!job) throw new Error("No RL job selected.");
-        const logs = await sdk.rlLogs(job.job_id);
-        $("rl-output").textContent = logs.text || "No logs yet.";
-      }
-
-      async function cancelRlJob() {
-        const job = latestRlJob();
-        if (!job) throw new Error("No RL job selected.");
-        const canceled = await sdk.cancelRlJob(job.job_id);
-        $("rl-output").textContent = JSON.stringify(canceled, null, 2);
-        toast(`RL job ${canceled.status}.`);
-        await refreshRlOutput(job.job_id);
       }
 
       async function collectGymRollout() {
@@ -1512,13 +1343,9 @@ logger.wandb_enabled=false</textarea></label>
         button.onclick = () => setMode(button.dataset.modeJump);
       });
       $("resident-rl-train").onclick = () => handle(runResidentRl);
+      $("resident-rl-sample").onclick = () => handle(sampleResidentRl);
       $("gym-sample").onclick = () => handle(collectGymRollout);
       $("gym-copy-note").onclick = showGymConverterCommand;
-      $("rl-dry-run").onclick = () => handle(() => submitRlJob(true));
-      $("rl-launch").onclick = () => handle(() => submitRlJob(false));
-      $("rl-refresh").onclick = () => handle(() => refreshRlOutput());
-      $("rl-logs").onclick = () => handle(showRlLogs);
-      $("rl-cancel").onclick = () => handle(cancelRlJob);
 
       setMode("flywheel");
       refresh().catch((error) => toast(error.message, true));

@@ -196,8 +196,10 @@ def test_mixed_lora_server_serves_operator_ui(monkeypatch, tmp_path):
 
     assert response.status_code == 200
     assert "Nemotron Tinker" in response.text
+    assert "SFT Adapter Goals" in response.text
+    assert "Resident RL Goal" in response.text
     assert 'id="create-run"' in response.text
-    assert 'id="rl-launch"' in response.text
+    assert 'id="resident-rl-train-both"' in response.text
 
 
 def test_mixed_lora_server_prepares_nemo_rl_docker_command(monkeypatch, tmp_path):
@@ -1190,8 +1192,36 @@ def test_resident_rl_trains_same_run_with_sampled_logprobs(monkeypatch, tmp_path
     assert response["reward_summary"]["mean"] == 1.0
     assert response["reward_summary"]["baseline"] == 0.0
     assert response["rollouts"][0]["advantage"] == 1.0
+    assert response["rollouts"][0]["completion_text"] == f" {created['adapter_id']}"
     assert response["train_response"]["runs"][created["run_id"]]["optimizer_steps"] == 2
     assert all(row["prompt"] == "say atlas" for row in response["rollouts"])
+
+
+def test_resident_rl_reward_scores_completion_not_prompt(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
+    app = server.create_app(base_model="fake-model", scratch_dir=tmp_path)
+    client = fastapi_testclient.TestClient(app)
+    created = client.post("/runs", json={"name": "atlas"}).json()
+
+    response = client.post(
+        f"/runs/{created['run_id']}/resident_rl",
+        json={
+            "prompts": ["target phrase appears only in prompt"],
+            "rollouts_per_prompt": 1,
+            "max_new_tokens": 4,
+            "reward_mode": "contains",
+            "reward_contains": "target phrase",
+            "steps": 1,
+            "learning_rate": 0.001,
+            "microbatch_size": 1,
+            "loss_fn": "importance_sampling",
+            "run_async": False,
+        },
+    ).json()
+
+    assert response["rollouts"][0]["completion_text"] == f" {created['adapter_id']}"
+    assert response["reward_summary"]["mean"] == -0.5
+    assert response["rollouts"][0]["advantage"] == -0.5
 
 
 def test_mixed_lora_server_submits_async_train_job(monkeypatch, tmp_path):

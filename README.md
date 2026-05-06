@@ -23,6 +23,8 @@ workloads, inference, save, restore, and UI/API smoke paths.
 
 - [Architecture](docs/architecture.md): service shape, worker model, storage,
   distributed scope, and kernel scope.
+- [Setup](docs/setup.md): local development requirements, AutoModel linkage,
+  GPU deployment prerequisites, and sanity checks.
 - [SFT Workflows](docs/sft.md): cross-entropy LoRA training, recipes, validated
   workloads, and sampling expectations.
 - [RL LoRA Workflows](docs/rl.md): rollout collection, RL losses, NeMo Gym
@@ -48,14 +50,23 @@ workloads, inference, save, restore, and UI/API smoke paths.
 
 ## Quick Start
 
+Local development requirements:
+
+```bash
+uv sync --extra dev
+export PYTHONPATH="$(pwd)/src:/path/to/Automodel"
+```
+
 Deploy the live single-node GPU service and open a local UI tunnel:
 
 ```bash
+GPU_HOST=<ssh-host> \
+REMOTE_HOME_SCRATCH=/home/scratch.<user> \
 scripts/deploy_gpu.sh start
 ```
 
-Defaults target `alon-ts1-iec-08`, the Nemotron Nano 30B A3B BF16 model under
-scratch, and the resident-only operator UI at:
+By default the script looks for the Nemotron Nano 30B A3B BF16 model under
+`REMOTE_HOME_SCRATCH` and starts the resident-only operator UI at:
 
 ```text
 http://127.0.0.1:18081/ui
@@ -64,10 +75,10 @@ http://127.0.0.1:18081/ui
 Useful variants:
 
 ```bash
-scripts/deploy_gpu.sh status
-scripts/deploy_gpu.sh tunnel
-scripts/deploy_gpu.sh stop
-GPU_HOST=alon-ts1-iec-16 LOCAL_PORT=18082 scripts/deploy_gpu.sh start
+GPU_HOST=<ssh-host> scripts/deploy_gpu.sh status
+GPU_HOST=<ssh-host> scripts/deploy_gpu.sh tunnel
+GPU_HOST=<ssh-host> scripts/deploy_gpu.sh stop
+GPU_HOST=<other-host> LOCAL_PORT=18082 scripts/deploy_gpu.sh start
 ```
 
 Start the service with a small model:

@@ -48,6 +48,10 @@ built-in reward rule, converts sampled token/logprob traces into RL datums, and
 submits `/train_steps` for the same run. The operator UI button **Run Resident
 RL** uses this path.
 
+Rewards are computed on the generated completion text, not on the prompt plus
+completion. This matters for goal prompts such as `Say exactly: ...`, because
+the target phrase appearing in the prompt should not receive reward by itself.
+
 ```json
 {
   "prompts": ["Say exactly: use atlas for apples"],
@@ -152,10 +156,11 @@ NeMo-RL checkout or container. That path is useful for testing official NeMo-RL
 GRPO recipes, including LoRA-enabled recipes, but it is not the same as the
 resident Tinker LoRA service.
 
-In the operator UI, **Launch RL Job** uses this external bridge. It does not
-train the same in-memory resident Nemotron model that the SFT page uses. The
-resident service can stay online for SFT and inference while the NeMo-RL job
-loads its own policy model in a separate process or container.
+The operator UI intentionally stays on the resident path: sample an adapter,
+score the attempt, train the same in-memory LoRA, and sample again. The
+external NeMo-RL bridge remains an API and backend integration path only. It
+does not train the same in-memory resident Nemotron model that the SFT page
+uses; it loads its own policy model in a separate process or container.
 
 Use it when:
 

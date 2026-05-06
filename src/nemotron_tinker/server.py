@@ -515,6 +515,21 @@ def _resident_rl_reward(text: str, mode: ResidentRLRewardMode, reward_contains: 
     raise ValueError(f"Unsupported resident RL reward_mode={mode!r}")
 
 
+def _resident_rl_completion_text(output: Any, prompt: str, tokenizer: Any) -> str:
+    prompt_token_count = max(0, int(getattr(output, "prompt_token_count", 0) or 0))
+    tokens = list(getattr(output, "tokens", []) or [])
+    completion_tokens = tokens[prompt_token_count:]
+    if completion_tokens and hasattr(tokenizer, "decode"):
+        try:
+            return str(tokenizer.decode(completion_tokens, skip_special_tokens=True))
+        except TypeError:
+            return str(tokenizer.decode(completion_tokens))
+    text = str(getattr(output, "text", ""))
+    if prompt and text.startswith(prompt):
+        return text[len(prompt) :]
+    return text
+
+
 def _resident_rl_datum_from_trace(
     *,
     tokens: list[int],
@@ -2544,11 +2559,13 @@ def create_app(
                     output = service.sample(client.adapter_id, prompt, sampling).result()
                     if output.generated_logprobs is None:
                         raise RuntimeError("Resident RL sampling did not return generated logprobs")
-                    reward = _resident_rl_reward(output.text, request.reward_mode, request.reward_contains)
+                    completion_text = _resident_rl_completion_text(output, prompt, service.tokenizer)
+                    reward = _resident_rl_reward(completion_text, request.reward_mode, request.reward_contains)
                     rollouts.append(
                         {
                             "prompt": prompt,
                             "text": output.text,
+                            "completion_text": completion_text,
                             "reward": reward,
                             "tokens": output.tokens,
                             "prompt_token_count": output.prompt_token_count,

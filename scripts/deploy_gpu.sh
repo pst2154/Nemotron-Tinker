@@ -17,14 +17,14 @@ set -euo pipefail
 
 ACTION="${1:-start}"
 
-GPU_HOST="${GPU_HOST:-alon-ts1-iec-08}"
-REMOTE_ROOT="${REMOTE_ROOT:-/home/scratch.asteiner/nemotron-tinker-deploy}"
-REMOTE_SCRATCH="${REMOTE_SCRATCH:-/home/scratch.asteiner/nemotron_tinker_ui_08}"
-REMOTE_HOME_SCRATCH="${REMOTE_HOME_SCRATCH:-/home/scratch.asteiner}"
+GPU_HOST="${GPU_HOST:-}"
+REMOTE_HOME_SCRATCH="${REMOTE_HOME_SCRATCH:-/home/scratch.${USER}}"
+REMOTE_ROOT="${REMOTE_ROOT:-${REMOTE_HOME_SCRATCH}/nemotron-tinker-deploy}"
+REMOTE_SCRATCH="${REMOTE_SCRATCH:-${REMOTE_HOME_SCRATCH}/nemotron_tinker_ui}"
 AUTOMODEL_DIR="${AUTOMODEL_DIR:-${REMOTE_ROOT}/Automodel}"
 TINKER_DIR="${TINKER_DIR:-${REMOTE_ROOT}/Nemotron-Tinker}"
-BASE_MODEL="${BASE_MODEL:-/home/scratch.asteiner/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16}"
-HF_CACHE_DIR="${HF_CACHE_DIR:-/home/scratch.asteiner/hf}"
+BASE_MODEL="${BASE_MODEL:-${REMOTE_HOME_SCRATCH}/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16}"
+HF_CACHE_DIR="${HF_CACHE_DIR:-${REMOTE_HOME_SCRATCH}/hf}"
 CONTAINER_IMAGE="${CONTAINER_IMAGE:-nvcr.io/nvidia/nemo-automodel:26.04}"
 CONTAINER_NAME="${CONTAINER_NAME:-nemotron-tinker-ui}"
 CUDA_VISIBLE_DEVICES_VALUE="${CUDA_VISIBLE_DEVICES_VALUE:-0}"
@@ -34,6 +34,10 @@ START_TUNNEL="${START_TUNNEL:-1}"
 ENABLE_EXTERNAL_RL_WORKER="${ENABLE_EXTERNAL_RL_WORKER:-0}"
 
 ssh_remote() {
+  if [ -z "${GPU_HOST}" ]; then
+    echo "Set GPU_HOST to the target SSH host." >&2
+    exit 2
+  fi
   ssh "${GPU_HOST}" "$@"
 }
 
@@ -137,6 +141,10 @@ REMOTE
 start_tunnel() {
   if [ "${START_TUNNEL}" != "1" ]; then
     return
+  fi
+  if [ -z "${GPU_HOST}" ]; then
+    echo "Set GPU_HOST to the target SSH host." >&2
+    exit 2
   fi
   if lsof -nP -iTCP:"${LOCAL_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
     echo "Local port ${LOCAL_PORT} is already listening; leaving it alone."

@@ -416,6 +416,23 @@
         color: var(--green);
       }
 
+      .sample pre {
+        max-height: 360px;
+        overflow: auto;
+        margin: 0 14px 14px;
+        color: #dce7d7;
+        white-space: pre-wrap;
+      }
+
+      .sample details {
+        margin-top: 14px;
+      }
+
+      .answer-text {
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
       details {
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -920,6 +937,39 @@ Say exactly: use atlas for apples</textarea></label>
         $("raw").textContent = JSON.stringify(payload, null, 2);
       }
 
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function responseText(payload) {
+        if (payload && typeof payload.output_text === "string") return payload.output_text;
+        const content = payload?.output?.[0]?.content || [];
+        const text = content.find((item) => item.type === "output_text" && typeof item.text === "string")?.text;
+        if (typeof text === "string") return text;
+        return "";
+      }
+
+      function renderOutputPanel(elementId, title, text, payload = null) {
+        const rawBlock = payload
+          ? [
+              "<details>",
+              "<summary>Show raw response</summary>",
+              `<pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`,
+              "</details>",
+            ].join("")
+          : "";
+        $(elementId).innerHTML = [
+          title ? `<h3>${escapeHtml(title)}</h3>` : "",
+          `<div class="answer-text">${escapeHtml(text || "(empty output)")}</div>`,
+          rawBlock,
+        ].join("");
+      }
+
       function setMode(mode) {
         state.mode = mode;
         document.querySelectorAll("[data-mode]").forEach((button) => {
@@ -1094,46 +1144,56 @@ Say exactly: use atlas for apples</textarea></label>
         setResidentRlProgress(progressOffset, displayTotal, "collecting", `sampling ${outputLabel} rollouts`);
         await nextPaint();
         const response = await sdk.residentRl(run.run_id, {
-            prompts,
-            reward_mode: "contains",
-            reward_contains: rewardContains,
-            reward_baseline: 0.0,
-            steps: totalSteps,
-            rollouts_per_prompt: Number($("resident-rl-rollouts").value),
-            max_new_tokens: Number($("resident-rl-tokens").value),
-            learning_rate: Number($("resident-rl-lr").value),
-            loss_fn: "importance_sampling",
-            loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
-            run_async: true,
-          });
-          let job = response.train_job;
-        $("resident-rl-output").textContent = `${outputLabel}\n${JSON.stringify(response, null, 2)}`;
-          raw(response);
-          const firstProgress = job.progress || {};
-          setResidentRlProgress(
+          prompts,
+          reward_mode: "contains",
+          reward_contains: rewardContains,
+          reward_baseline: 0.0,
+          steps: totalSteps,
+          rollouts_per_prompt: Number($("resident-rl-rollouts").value),
+          max_new_tokens: Number($("resident-rl-tokens").value),
+          learning_rate: Number($("resident-rl-lr").value),
+          loss_fn: "importance_sampling",
+          loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
+          run_async: true,
+        });
+        let job = response.train_job;
+        renderOutputPanel(
+          "resident-rl-output",
+          outputLabel,
+          `Collected ${response.rollout_count} rollout(s). Waiting for training to finish...`,
+          response,
+        );
+        raw(response);
+        const firstProgress = job.progress || {};
+        setResidentRlProgress(
           progressOffset + (firstProgress.step || 0),
           displayTotal,
-            job.status,
+          job.status,
           `training ${outputLabel}`,
+        );
+        while (!["succeeded", "failed", "canceled"].includes(job.status)) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          job = await sdk.job(job.job_id);
+          const progress = job.progress || {};
+          renderOutputPanel(
+            "resident-rl-output",
+            outputLabel,
+            `Training ${outputLabel}: ${progress.step || 0} / ${progress.total_steps || totalSteps}`,
+            { ...response, train_job: job },
           );
-          while (!["succeeded", "failed", "canceled"].includes(job.status)) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            job = await sdk.job(job.job_id);
-          $("resident-rl-output").textContent = `${outputLabel}\n${JSON.stringify({ ...response, train_job: job }, null, 2)}`;
-            const progress = job.progress || {};
-            setResidentRlProgress(
+          setResidentRlProgress(
             progressOffset + (progress.step || 0),
             displayTotal,
-              job.status,
+            job.status,
             (progress.step || 0) < (progress.total_steps || totalSteps)
               ? `GPU is training ${outputLabel}`
               : `finalizing ${outputLabel}`,
-            );
-            await refresh();
-          }
-          const progress = job.progress || {};
+          );
+          await refresh();
+        }
+        const progress = job.progress || {};
         setResidentRlProgress(progressOffset + (progress.step || 0), displayTotal, job.status, `${outputLabel} done`);
-          if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
+        if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
         return { ...response, train_job: job };
       }
 
@@ -1149,7 +1209,12 @@ Say exactly: use atlas for apples</textarea></label>
             outputLabel: "Resident RL",
           });
           toast("Resident RL finished.");
-          $("resident-rl-output").textContent = JSON.stringify(response, null, 2);
+          renderOutputPanel(
+            "resident-rl-output",
+            "Resident RL finished",
+            `Reward mean: ${response.reward_summary.mean}. Job: ${response.train_job.status}.`,
+            response,
+          );
         } finally {
           clearBusy();
           await refresh();
@@ -1179,7 +1244,15 @@ Say exactly: use atlas for apples</textarea></label>
             progressTotal: steps * 2,
           });
           setResidentRlProgress(steps * 2, steps * 2, "succeeded", "both adapters done");
-          $("resident-rl-output").textContent = JSON.stringify({ atlas: atlasResult, borealis: borealisResult }, null, 2);
+          renderOutputPanel(
+            "resident-rl-output",
+            "Resident RL finished for both",
+            [
+              `Atlas reward mean: ${atlasResult.reward_summary.mean}; job: ${atlasResult.train_job.status}.`,
+              `Borealis reward mean: ${borealisResult.reward_summary.mean}; job: ${borealisResult.train_job.status}.`,
+            ].join("\n"),
+            { atlas: atlasResult, borealis: borealisResult },
+          );
           raw({ atlas: atlasResult, borealis: borealisResult });
           toast("Resident RL finished for both adapters.");
         } finally {
@@ -1198,7 +1271,7 @@ Say exactly: use atlas for apples</textarea></label>
           if (!prompt) throw new Error("Type at least one Resident RL prompt first.");
           const result = await sdk.sample(run.run_id, prompt, Number($("resident-rl-tokens").value), false);
           const text = visibleText(result, prompt);
-          $("resident-rl-output").textContent = `${run.name || run.run_id} output\n${text}\n\n${JSON.stringify(result, null, 2)}`;
+          renderOutputPanel("resident-rl-output", `${run.name || run.run_id} output`, text, result);
           raw(result);
           toast("Sampled resident run.");
         } finally {
@@ -1219,13 +1292,16 @@ Say exactly: use atlas for apples</textarea></label>
             sdk.sample(atlasRun.run_id, atlasPrompt, Number($("resident-rl-tokens").value), false),
             sdk.sample(borealisRun.run_id, borealisPrompt, Number($("resident-rl-tokens").value), false),
           ]);
-          $("resident-rl-output").textContent = [
-            `Atlas output\n${visibleText(atlasResult, atlasPrompt)}`,
-            "",
-            `Borealis output\n${visibleText(borealisResult, borealisPrompt)}`,
-            "",
-            JSON.stringify({ atlas: atlasResult, borealis: borealisResult }, null, 2),
-          ].join("\n");
+          renderOutputPanel(
+            "resident-rl-output",
+            "Resident RL samples",
+            [
+              `Atlas output\n${visibleText(atlasResult, atlasPrompt)}`,
+              "",
+              `Borealis output\n${visibleText(borealisResult, borealisPrompt)}`,
+            ].join("\n"),
+            { atlas: atlasResult, borealis: borealisResult },
+          );
           raw({ atlas: atlasResult, borealis: borealisResult });
           toast("Sampled both resident runs.");
         } finally {
@@ -1242,7 +1318,7 @@ Say exactly: use atlas for apples</textarea></label>
             $("gym-prompt").value,
             Number($("gym-max-output").value),
           );
-          $("gym-output").textContent = JSON.stringify(response, null, 2);
+          renderOutputPanel("gym-output", `${response.model || "Adapter"} output`, responseText(response), response);
           raw(response);
           toast("Sampled one attempt.");
         } finally {

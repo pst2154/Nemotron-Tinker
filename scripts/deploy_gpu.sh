@@ -32,6 +32,7 @@ REMOTE_PORT="${REMOTE_PORT:-18080}"
 LOCAL_PORT="${LOCAL_PORT:-18081}"
 START_TUNNEL="${START_TUNNEL:-1}"
 ENABLE_EXTERNAL_RL_WORKER="${ENABLE_EXTERNAL_RL_WORKER:-0}"
+RUN_AS_HOST_USER="${RUN_AS_HOST_USER:-0}"
 
 ssh_remote() {
   if [ -z "${GPU_HOST}" ]; then
@@ -54,13 +55,14 @@ Nemotron-Tinker deployment
   remote port:       ${REMOTE_PORT}
   local UI:          http://127.0.0.1:${LOCAL_PORT}/ui
   external RL worker ${ENABLE_EXTERNAL_RL_WORKER}
+  run as host user:  ${RUN_AS_HOST_USER}
 EOF
 }
 
 start_remote() {
   print_config
   ssh_remote \
-    "REMOTE_ROOT='${REMOTE_ROOT}' REMOTE_SCRATCH='${REMOTE_SCRATCH}' REMOTE_HOME_SCRATCH='${REMOTE_HOME_SCRATCH}' AUTOMODEL_DIR='${AUTOMODEL_DIR}' TINKER_DIR='${TINKER_DIR}' BASE_MODEL='${BASE_MODEL}' HF_CACHE_DIR='${HF_CACHE_DIR}' CONTAINER_IMAGE='${CONTAINER_IMAGE}' CONTAINER_NAME='${CONTAINER_NAME}' CUDA_VISIBLE_DEVICES_VALUE='${CUDA_VISIBLE_DEVICES_VALUE}' REMOTE_PORT='${REMOTE_PORT}' ENABLE_EXTERNAL_RL_WORKER='${ENABLE_EXTERNAL_RL_WORKER}' bash -s" <<'REMOTE'
+    "REMOTE_ROOT='${REMOTE_ROOT}' REMOTE_SCRATCH='${REMOTE_SCRATCH}' REMOTE_HOME_SCRATCH='${REMOTE_HOME_SCRATCH}' AUTOMODEL_DIR='${AUTOMODEL_DIR}' TINKER_DIR='${TINKER_DIR}' BASE_MODEL='${BASE_MODEL}' HF_CACHE_DIR='${HF_CACHE_DIR}' CONTAINER_IMAGE='${CONTAINER_IMAGE}' CONTAINER_NAME='${CONTAINER_NAME}' CUDA_VISIBLE_DEVICES_VALUE='${CUDA_VISIBLE_DEVICES_VALUE}' REMOTE_PORT='${REMOTE_PORT}' ENABLE_EXTERNAL_RL_WORKER='${ENABLE_EXTERNAL_RL_WORKER}' RUN_AS_HOST_USER='${RUN_AS_HOST_USER}' bash -s" <<'REMOTE'
 set -euo pipefail
 
 if [ ! -d "${TINKER_DIR}/.git" ]; then
@@ -84,7 +86,22 @@ git pull --ff-only origin main
 mkdir -p "${REMOTE_SCRATCH}" "${HF_CACHE_DIR}"
 docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
+user_args=()
+if [ "${RUN_AS_HOST_USER}" = "1" ]; then
+  mkdir -p "${REMOTE_SCRATCH}/cache/torchinductor" "${REMOTE_SCRATCH}/cache/xdg" "${REMOTE_SCRATCH}/cache/tmp"
+  user_args=(
+    --user "$(id -u):$(id -g)"
+    -e "USER=${USER:-nemotron}"
+    -e "LOGNAME=${USER:-nemotron}"
+    -e "HOME=${REMOTE_HOME_SCRATCH}"
+    -e "XDG_CACHE_HOME=${REMOTE_SCRATCH}/cache/xdg"
+    -e "TORCHINDUCTOR_CACHE_DIR=${REMOTE_SCRATCH}/cache/torchinductor"
+    -e "TMPDIR=${REMOTE_SCRATCH}/cache/tmp"
+  )
+fi
+
 docker run -d --name "${CONTAINER_NAME}" \
+  "${user_args[@]}" \
   --gpus all \
   --ipc=host \
   --ulimit memlock=-1 \

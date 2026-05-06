@@ -1297,6 +1297,12 @@ Answer:</textarea></label>
         $("resident-rl-progress-label").textContent = `Resident RL: ${safeStep} / ${total || "?"} (${status})${suffix}`;
       }
 
+      function setResidentRlPhase(status, detail = "") {
+        $("resident-rl-progress").className = "progress-wrap show live";
+        $("resident-rl-progress-fill").style.width = "100%";
+        $("resident-rl-progress-label").textContent = `Resident RL: ${status}${detail ? ` - ${detail}` : ""}`;
+      }
+
       function hideResidentRlProgress() {
         $("resident-rl-progress").className = "progress-wrap";
         $("resident-rl-progress-fill").style.width = "0%";
@@ -1502,8 +1508,10 @@ Answer:</textarea></label>
           const atlasRun = resolveRun($("resident-rl-atlas-run").value);
           const borealisRun = resolveRun($("resident-rl-borealis-run").value);
           const rewardMode = $("resident-rl-reward-mode").value;
+          const rolloutsPerPrompt = Number($("resident-rl-rollouts").value);
+          const plannedRollouts = 2 * rolloutsPerPrompt;
           syncRlPromptsFromSft();
-          setResidentRlProgress(0, steps, "sampling", "before-RL eval");
+          setResidentRlPhase("before-RL eval", "sampling the current adapters");
           const before = await sampleRlPair(atlasRun, borealisRun);
           renderOutputPanel(
             "resident-rl-output",
@@ -1511,36 +1519,52 @@ Answer:</textarea></label>
             [`Atlas: ${before.atlas}`, "", `Borealis: ${before.borealis}`].join("\n"),
             before.raw,
           );
-          setResidentRlProgress(0, steps, "collecting", "collecting rollouts and creating the train job");
+          let collectSeconds = 0;
+          setResidentRlPhase(
+            "collecting rollouts",
+            `${plannedRollouts} generation(s); training steps start after this finishes`,
+          );
+          const collectTimer = setInterval(() => {
+            collectSeconds += 1;
+            setResidentRlPhase(
+              "collecting rollouts",
+              `${plannedRollouts} generation(s), ${collectSeconds}s elapsed; no train job yet`,
+            );
+          }, 1000);
           await nextPaint();
           const stamp = versionStamp();
-          const response = await sdk.residentRlMixed({
-            runs: [
-              {
-                run_id: atlasRun.run_id,
-                prompts: [$("resident-rl-atlas-prompt").value.trim()],
-                reward_mode: rewardMode,
-                reward_contains: $("resident-rl-atlas-contains").value.trim(),
-                save_name: `atlas-v${stamp}-rl`,
-              },
-              {
-                run_id: borealisRun.run_id,
-                prompts: [$("resident-rl-borealis-prompt").value.trim()],
-                reward_mode: rewardMode,
-                reward_contains: $("resident-rl-borealis-contains").value.trim(),
-                save_name: `borealis-v${stamp}-rl`,
-              },
-            ],
-            reward_baseline: 0.0,
-            steps,
-            rollouts_per_prompt: Number($("resident-rl-rollouts").value),
-            max_new_tokens: Number($("resident-rl-tokens").value),
-            learning_rate: Number($("resident-rl-lr").value),
-            microbatch_size: 1,
-            loss_fn: "importance_sampling",
-            loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
-            run_async: true,
-          });
+          let response;
+          try {
+            response = await sdk.residentRlMixed({
+              runs: [
+                {
+                  run_id: atlasRun.run_id,
+                  prompts: [$("resident-rl-atlas-prompt").value.trim()],
+                  reward_mode: rewardMode,
+                  reward_contains: $("resident-rl-atlas-contains").value.trim(),
+                  save_name: `atlas-v${stamp}-rl`,
+                },
+                {
+                  run_id: borealisRun.run_id,
+                  prompts: [$("resident-rl-borealis-prompt").value.trim()],
+                  reward_mode: rewardMode,
+                  reward_contains: $("resident-rl-borealis-contains").value.trim(),
+                  save_name: `borealis-v${stamp}-rl`,
+                },
+              ],
+              reward_baseline: 0.0,
+              steps,
+              rollouts_per_prompt: rolloutsPerPrompt,
+              max_new_tokens: Number($("resident-rl-tokens").value),
+              learning_rate: Number($("resident-rl-lr").value),
+              microbatch_size: 1,
+              loss_fn: "importance_sampling",
+              loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
+              run_async: true,
+            });
+          } finally {
+            clearInterval(collectTimer);
+          }
           let job = response.train_job;
           renderOutputPanel(
             "resident-rl-output",

@@ -690,13 +690,13 @@ Answer:</textarea></label>
         <div class="body">
           <div class="steps">
             <div class="step active"><b>1</b>Goal: choose the exact behavior each adapter should prefer.</div>
-            <div class="step"><b>2</b>Attempt: sample both resident adapters on their prompts.</div>
+            <div class="step"><b>2</b>Attempt: sample both resident adapters on the same prompts used for SFT.</div>
             <div class="step"><b>3</b>Reward: score each adapter's completion against its target text.</div>
             <div class="step"><b>4</b>Train together: submit one mixed RL job, then sample both again.</div>
           </div>
           <div class="summary-card">
             <strong>What this is showing</strong>
-            <span class="tiny">Atlas should learn the apples response and Borealis should learn the weather response. The base model stays loaded once; only the resident LoRA adapters are updated.</span>
+            <span class="tiny">SFT teaches the first answer for each prompt. RL reuses those exact prompts and pushes each adapter toward a new preferred answer.</span>
           </div>
         </div>
       </section>
@@ -704,25 +704,27 @@ Answer:</textarea></label>
       <section data-panel="rl">
         <div class="section-head">
           <h2>Train Both Toward Goals</h2>
-          <span class="tiny">Collect both adapters' attempts, then train them in one mixed resident RL job.</span>
+          <span class="tiny">Use the same prompts as SFT, then train a new preference answer in one mixed resident RL job.</span>
         </div>
         <div class="body">
           <div class="summary-card">
             <strong>How to read this</strong>
-            <span class="tiny">Prompt is the challenge. Target answer is the reward text. The service samples both adapters first, then sends one mixed RL train_steps job for both LoRAs.</span>
+            <span class="tiny">The prompt is reused from SFT. Before RL should look like the SFT answer; after RL should move toward the new target answer.</span>
           </div>
           <div class="adapters">
             <div class="adapter ready">
               <h3>Atlas RL</h3>
               <label>Run name or id<input id="resident-rl-atlas-run" value="atlas" /></label>
-              <label>Target answer<input id="resident-rl-atlas-contains" value="use atlas for apples" /></label>
-              <label>Prompt<textarea id="resident-rl-atlas-prompt">Say exactly: use atlas for apples</textarea></label>
+              <label>New RL target answer<input id="resident-rl-atlas-contains" value="Use the atlas adapter for apple inventory and orchard planning." /></label>
+              <label>Prompt reused from SFT<textarea id="resident-rl-atlas-prompt" readonly>Route code: ATLAS
+Answer:</textarea></label>
             </div>
             <div class="adapter ready">
               <h3>Borealis RL</h3>
               <label>Run name or id<input id="resident-rl-borealis-run" value="borealis" /></label>
-              <label>Target answer<input id="resident-rl-borealis-contains" value="use borealis for weather" /></label>
-              <label>Prompt<textarea id="resident-rl-borealis-prompt">Say exactly: use borealis for weather</textarea></label>
+              <label>New RL target answer<input id="resident-rl-borealis-contains" value="Use the borealis adapter for storm alerts and forecast decisions." /></label>
+              <label>Prompt reused from SFT<textarea id="resident-rl-borealis-prompt" readonly>Route code: BOREALIS
+Answer:</textarea></label>
             </div>
           </div>
           <div class="five">
@@ -733,8 +735,9 @@ Answer:</textarea></label>
             <label>Reward mode<select id="resident-rl-reward-mode"><option value="exact">exact</option><option value="starts_with">starts with</option><option value="contains">contains</option><option value="regex">regex</option></select></label>
           </div>
           <div class="big-actions">
-            <button id="resident-rl-sample-both" class="blue">1. Sample Both Before/After</button>
-            <button id="resident-rl-train-both" class="primary">2. Train Both Together</button>
+            <button id="resident-rl-sample-both" class="blue">1. Sample SFT Prompts</button>
+            <button id="resident-rl-train-both" class="primary">2. RL Same Prompts</button>
+            <button id="resident-rl-export-both" class="blue">3. Export RL LoRAs</button>
           </div>
           <div id="resident-rl-progress" class="progress-wrap">
             <div class="progress-bar"><div id="resident-rl-progress-fill" class="progress-fill"></div></div>
@@ -1200,6 +1203,7 @@ Answer:</textarea></label>
         $("detach-both").disabled = disabled || !hasBoth;
         $("resident-rl-train-both").disabled = disabled || !hasBoth;
         $("resident-rl-sample-both").disabled = disabled || !hasBoth;
+        $("resident-rl-export-both").disabled = disabled || !hasBoth;
       }
 
       async function refresh() {
@@ -1222,7 +1226,13 @@ Answer:</textarea></label>
         return new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
       }
 
+      function syncRlPromptsFromSft() {
+        $("resident-rl-atlas-prompt").value = $("atlas-prompt").value;
+        $("resident-rl-borealis-prompt").value = $("borealis-prompt").value;
+      }
+
       async function sampleRlPair(atlasRun, borealisRun) {
+        syncRlPromptsFromSft();
         const atlasPrompt = $("resident-rl-atlas-prompt").value.trim();
         const borealisPrompt = $("resident-rl-borealis-prompt").value.trim();
         const [atlasResult, borealisResult] = await Promise.all([
@@ -1304,6 +1314,7 @@ Answer:</textarea></label>
           const atlasRun = resolveRun($("resident-rl-atlas-run").value);
           const borealisRun = resolveRun($("resident-rl-borealis-run").value);
           const rewardMode = $("resident-rl-reward-mode").value;
+          syncRlPromptsFromSft();
           setResidentRlProgress(0, steps, "sampling", "before-RL eval");
           const before = await sampleRlPair(atlasRun, borealisRun);
           renderOutputPanel(
@@ -1571,6 +1582,33 @@ Answer:</textarea></label>
         }
       }
 
+      async function exportRlBoth() {
+        setBusy("rl-export", "Exporting RL LoRAs...", "resident-rl-export-both");
+        const stamp = versionStamp();
+        const exported = [];
+        try {
+          const atlasRun = atlas();
+          const borealisRun = borealis();
+          if (atlasRun) {
+            const name = `atlas-v${stamp}-rl-export`;
+            const blob = await sdk.export(atlasRun.run_id, name);
+            downloadBlob(blob, `${name}.zip`);
+            exported.push({ run_id: atlasRun.run_id, file: `${name}.zip` });
+          }
+          if (borealisRun) {
+            const name = `borealis-v${stamp}-rl-export`;
+            const blob = await sdk.export(borealisRun.run_id, name);
+            downloadBlob(blob, `${name}.zip`);
+            exported.push({ run_id: borealisRun.run_id, file: `${name}.zip` });
+          }
+          raw({ exported });
+          toast("RL LoRA exports downloaded.");
+          await refresh();
+        } finally {
+          clearBusy();
+        }
+      }
+
       async function detachBoth() {
         setBusy("detach", "Detaching...", "detach-both");
         const results = [];
@@ -1602,6 +1640,8 @@ Answer:</textarea></label>
         handle(refresh);
       };
       $("workspace").onchange = () => handle(refresh);
+      $("atlas-prompt").oninput = syncRlPromptsFromSft;
+      $("borealis-prompt").oninput = syncRlPromptsFromSft;
       $("create-run").onclick = () => handle(createMissing);
       $("train-both").onclick = () => handle(trainBoth);
       $("sample-atlas").onclick = () => handle(() => sample("atlas"));
@@ -1621,8 +1661,10 @@ Answer:</textarea></label>
       });
       $("resident-rl-train-both").onclick = () => handle(runResidentRlBoth);
       $("resident-rl-sample-both").onclick = () => handle(sampleResidentRlBoth);
+      $("resident-rl-export-both").onclick = () => handle(exportRlBoth);
 
       setMode("flywheel");
+      syncRlPromptsFromSft();
       refresh().catch((error) => toast(error.message, true));
       setInterval(() => refresh().catch(() => {}), 5000);
     </script>

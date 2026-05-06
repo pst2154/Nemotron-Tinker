@@ -2,6 +2,7 @@
 .pytest_cache/
 .ruff_cache/
 .venv/
+uv.lock
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -10,4 +11,3 @@ dist/
 runs/
 scratch/
 checkpoints/
-

@@ -688,6 +688,10 @@ Say exactly: use atlas for apples</textarea></label>
             <button id="resident-rl-train" class="primary">Run Resident RL</button>
             <button id="resident-rl-sample" class="blue">Sample Resident Run</button>
           </div>
+          <div id="resident-rl-progress" class="progress-wrap">
+            <div class="progress-bar"><div id="resident-rl-progress-fill" class="progress-fill"></div></div>
+            <div id="resident-rl-progress-label" class="tiny">Resident RL: 0 / 0</div>
+          </div>
           <pre id="resident-rl-output" class="sample">Resident RL output appears here.</pre>
         </div>
       </section>
@@ -939,6 +943,22 @@ Say exactly: use atlas for apples</textarea></label>
         $("train-progress-label").textContent = "Training: 0 / 0";
       }
 
+      function setResidentRlProgress(step, total, status = "running", detail = "") {
+        const safeTotal = Math.max(Number(total) || 0, 1);
+        const safeStep = Math.max(0, Math.min(Number(step) || 0, safeTotal));
+        const isLive = !["succeeded", "failed", "canceled"].includes(status);
+        $("resident-rl-progress").className = `progress-wrap show${isLive ? " live" : ""}`;
+        $("resident-rl-progress-fill").style.width = `${Math.round((safeStep / safeTotal) * 100)}%`;
+        const suffix = detail ? ` - ${detail}` : "";
+        $("resident-rl-progress-label").textContent = `Resident RL: ${safeStep} / ${total || "?"} (${status})${suffix}`;
+      }
+
+      function hideResidentRlProgress() {
+        $("resident-rl-progress").className = "progress-wrap";
+        $("resident-rl-progress-fill").style.width = "0%";
+        $("resident-rl-progress-label").textContent = "Resident RL: 0 / 0";
+      }
+
       function runByName(name) {
         return state.runs.find((run) => (run.name || "").toLowerCase() === name && run.status !== "detached");
       }
@@ -1051,12 +1071,15 @@ Say exactly: use atlas for apples</textarea></label>
           await refresh();
           const run = resolveRun($("resident-rl-run").value);
           const prompts = $("resident-rl-prompts").value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+          const totalSteps = Number($("resident-rl-steps").value);
+          setResidentRlProgress(0, totalSteps, "collecting", "sampling resident rollouts");
+          await nextPaint();
           const response = await sdk.residentRl(run.run_id, {
             prompts,
             reward_mode: $("resident-rl-reward").value,
             reward_contains: $("resident-rl-contains").value.trim() || null,
             reward_baseline: 0.0,
-            steps: Number($("resident-rl-steps").value),
+            steps: totalSteps,
             rollouts_per_prompt: Number($("resident-rl-rollouts").value),
             max_new_tokens: Number($("resident-rl-tokens").value),
             learning_rate: Number($("resident-rl-lr").value),
@@ -1067,18 +1090,35 @@ Say exactly: use atlas for apples</textarea></label>
           let job = response.train_job;
           $("resident-rl-output").textContent = JSON.stringify(response, null, 2);
           raw(response);
+          const firstProgress = job.progress || {};
+          setResidentRlProgress(
+            firstProgress.step || 0,
+            firstProgress.total_steps || totalSteps,
+            job.status,
+            "training resident LoRA",
+          );
           while (!["succeeded", "failed", "canceled"].includes(job.status)) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             job = await sdk.job(job.job_id);
             $("resident-rl-output").textContent = JSON.stringify({ ...response, train_job: job }, null, 2);
+            const progress = job.progress || {};
+            setResidentRlProgress(
+              progress.step || 0,
+              progress.total_steps || totalSteps,
+              job.status,
+              (progress.step || 0) < (progress.total_steps || totalSteps) ? "GPU is working on the current step" : "finalizing",
+            );
             await refresh();
           }
+          const progress = job.progress || {};
+          setResidentRlProgress(progress.step || 0, progress.total_steps || totalSteps, job.status, "done");
           if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
           toast("Resident RL finished.");
           $("resident-rl-output").textContent = JSON.stringify({ ...response, train_job: job }, null, 2);
         } finally {
           clearBusy();
           await refresh();
+          setTimeout(hideResidentRlProgress, 1800);
         }
       }
 

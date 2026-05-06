@@ -615,6 +615,9 @@ Answer:</textarea></label>
             <label>Learning rate<input id="lr" value="0.0005" /></label>
             <label>Max train tokens<input id="max-tokens" type="number" min="8" value="64" /></label>
           </div>
+          <div class="three">
+            <label>Sample output tokens<input id="sample-tokens" type="number" min="1" value="32" /></label>
+          </div>
         </div>
       </section>
 
@@ -843,10 +846,10 @@ logger.wandb_enabled=false</textarea></label>
           return this.call(`/jobs/${jobId}`);
         }
 
-        sample(runId, prompt) {
+        sample(runId, prompt, maxNewTokens) {
           return this.call(`/runs/${runId}/sample`, {
             method: "POST",
-            body: JSON.stringify({ prompt, max_new_tokens: 12, do_sample: false, temperature: 0.0 }),
+            body: JSON.stringify({ prompt, max_new_tokens: maxNewTokens, do_sample: false, temperature: 0.0 }),
           });
         }
 
@@ -1294,7 +1297,7 @@ logger.wandb_enabled=false</textarea></label>
         setBusy(`sample-${which}`, "Sampling...", buttonId, "step-4", outputId);
         const prompt = which === "atlas" ? $("atlas-prompt").value : $("borealis-prompt").value;
         try {
-          const result = await sdk.sample(run.run_id, prompt);
+          const result = await sdk.sample(run.run_id, prompt, Number($("sample-tokens").value));
           $(outputId).innerHTML =
             `<h3>${which[0].toUpperCase() + which.slice(1)} output</h3>${visibleText(result, prompt)}`;
           raw(result);

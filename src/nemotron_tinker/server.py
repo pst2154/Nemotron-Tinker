@@ -53,7 +53,7 @@ HAS_PYDANTIC, BaseModel = safe_import_from("pydantic", "BaseModel")
 _, Field = safe_import_from("pydantic", "Field")
 
 MetadataBackend = Literal["sqlite", "json"]
-RLLauncher = Literal["local", "docker"]
+RLLauncher = Literal["local", "docker", "host"]
 RLRunner = Literal["uv", "python"]
 TENANT_HEADER = "x-tinker-tenant-id"
 
@@ -1654,6 +1654,23 @@ def create_app(
             rl_job_store.save(rl_jobs)
         return job
 
+    def enqueue_host_rl_job(job: RLJobRecord) -> None:
+        queue_dir = pathlib.Path(scratch_dir) / "tinker_api" / "host_rl_queue"
+        queue_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "job_id": job.job_id,
+            "command": job.command,
+            "repo_dir": job.repo_dir,
+            "log_path": job.log_path,
+            "max_runtime_seconds": job.max_runtime_seconds,
+            "metadata_backend": metadata_backend,
+            "metadata_path": str(pathlib.Path(scratch_dir) / "tinker_api" / "metadata.sqlite3"),
+        }
+        tmp_path = queue_dir / f"{job.job_id}.json.tmp"
+        with tmp_path.open("w", encoding="utf-8") as fp:
+            json.dump(payload, fp, indent=2, sort_keys=True)
+        tmp_path.replace(queue_dir / f"{job.job_id}.json")
+
     def get_rl_job_record(job_id: str) -> RLJobRecord:
         with rl_jobs_lock:
             job = rl_jobs.get(job_id)
@@ -2298,6 +2315,10 @@ def create_app(
         job = create_rl_job(request, command, repo_dir)
         response = RLJobSubmitResponse(job=job)
         if request.dry_run:
+            store_idempotent_response("rl_jobs", request.idempotency_key, request, response)
+            return response
+        if request.launcher == "host":
+            enqueue_host_rl_job(job)
             store_idempotent_response("rl_jobs", request.idempotency_key, request, response)
             return response
         if request.run_async:

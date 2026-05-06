@@ -693,26 +693,26 @@ Answer:</textarea></label>
         <div class="body">
           <div class="summary-card">
             <strong>Launch note</strong>
-            <span class="tiny">Show RL Command is safe and works from this UI. Launch RL only works when the service process has either local NeMo-RL dependencies or explicitly approved access to a Docker CLI and socket.</span>
+            <span class="tiny">Show RL Command is safe and works from this UI. Launch RL uses a host worker by default, so the API does not need Docker socket access.</span>
           </div>
           <div class="two">
             <label>RL repo dir<input id="rl-repo" value="" /></label>
             <label>Config path<input id="rl-config" value="examples/configs/grpo_math_1B.yaml" /></label>
           </div>
           <div class="two">
-            <label>Docker host RL repo dir<input id="rl-docker-repo" value="" placeholder="optional: /tmp/nemotron_tinker/RL" /></label>
+            <label>Docker host RL repo dir<input id="rl-docker-repo" value="/home/scratch.asteiner/RL" placeholder="optional: /tmp/nemotron_tinker/RL" /></label>
             <label>Docker container RL dir<input id="rl-docker-container-repo" value="/opt/nemo-rl" /></label>
           </div>
           <div class="two">
-            <label>Docker HF cache dir<input id="rl-docker-hf-cache" value="" placeholder="optional writable cache dir" /></label>
+            <label>Docker HF cache dir<input id="rl-docker-hf-cache" value="/home/scratch.asteiner/hf" placeholder="optional writable cache dir" /></label>
             <label>Container HF cache dir<input id="rl-docker-container-hf-cache" value="/root/.cache/huggingface" /></label>
           </div>
           <div class="two">
-            <label>Docker output dir<input id="rl-docker-output" value="" placeholder="optional persistent output dir" /></label>
+            <label>Docker output dir<input id="rl-docker-output" value="/home/scratch.asteiner/nemotron_tinker_rl_outputs" placeholder="optional persistent output dir" /></label>
             <label>Container output dir<input id="rl-docker-container-output" value="/workspace/rl_outputs" /></label>
           </div>
           <div class="four">
-            <label>Launcher<select id="rl-launcher"><option value="docker">docker</option><option value="local">local</option></select></label>
+            <label>Launcher<select id="rl-launcher"><option value="host">host worker</option><option value="docker">docker in API</option><option value="local">local in API</option></select></label>
             <label>Runner<select id="rl-runner"><option value="python">python</option><option value="uv">uv</option></select></label>
             <label>Container image<input id="rl-image" value="nvcr.io/nvidia/nemo-rl:v0.6.0" /></label>
             <label>Job name<input id="rl-name" value="grpo-smoke" /></label>

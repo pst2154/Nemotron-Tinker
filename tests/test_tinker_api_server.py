@@ -276,6 +276,14 @@ def test_mixed_lora_server_queues_host_nemo_rl_job_and_refreshes_status(monkeypa
     assert refreshed["status"] == "running"
     assert refreshed["pid"] == 12345
 
+    marked = client.post(
+        f"/internal/rl/jobs/{job['job_id']}/mark",
+        json={"status": "succeeded", "returncode": 0, "log_path": str(tmp_path / "host.log")},
+    ).json()
+    assert marked["status"] == "succeeded"
+    assert marked["returncode"] == 0
+    assert marked["log_path"] == str(tmp_path / "host.log")
+
 
 def test_mixed_lora_server_prepares_container_native_nemo_rl_docker_command(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)

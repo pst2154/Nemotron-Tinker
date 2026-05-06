@@ -308,6 +308,16 @@ class RLJobSubmitResponse(BaseModel):
     job: RLJobRecord
 
 
+class RLJobMarkRequest(BaseModel):
+    """Status update from a host-side RL launcher worker."""
+
+    status: Optional[str] = None
+    pid: Optional[int] = None
+    returncode: Optional[int] = None
+    error: Optional[str] = None
+    log_path: Optional[str] = None
+
+
 class IdempotencyRecord(BaseModel):
     """Stored response for a retryable mutating request."""
 
@@ -1693,6 +1703,7 @@ def create_app(
         pid: Optional[int] = None,
         returncode: Optional[int] = None,
         error: Optional[str] = None,
+        log_path: Optional[str] = None,
     ) -> RLJobRecord:
         with rl_jobs_lock:
             job = get_rl_job_record(job_id)
@@ -1704,6 +1715,8 @@ def create_app(
                 job.returncode = returncode
             if error is not None:
                 job.error = error
+            if log_path is not None:
+                job.log_path = log_path
             job.updated_at = _utc_now()
             rl_job_store.save(rl_jobs)
             return job
@@ -2295,6 +2308,24 @@ def create_app(
     @app.post("/rl/jobs/{job_id}/cancel", response_model=RLJobRecord)
     def cancel_rl_job(job_id: str, http_request: Request) -> RLJobRecord:
         return cancel_rl_job_record(job_id, http_request)
+
+    @app.post("/internal/rl/jobs/{job_id}/mark", response_model=RLJobRecord)
+    def mark_rl_job_from_host_worker(job_id: str, request: RLJobMarkRequest, http_request: Request) -> RLJobRecord:
+        expected_token = os.environ.get("NEMOTRON_TINKER_HOST_WORKER_TOKEN")
+        if expected_token:
+            provided_token = http_request.headers.get("X-Nemotron-Tinker-Worker-Token")
+            if provided_token != expected_token:
+                raise HTTPException(status_code=403, detail="Invalid host worker token")
+        job = get_rl_job_record(job_id)
+        authorize_tenant(job.tenant_id, http_request)
+        return mark_rl_job(
+            job_id,
+            status=request.status,
+            pid=request.pid,
+            returncode=request.returncode,
+            error=request.error,
+            log_path=request.log_path,
+        )
 
     @app.post("/rl/jobs", response_model=RLJobSubmitResponse)
     def submit_rl_job(request: RLJobRequest, http_request: Request) -> RLJobSubmitResponse:

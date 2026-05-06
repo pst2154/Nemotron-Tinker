@@ -19,47 +19,15 @@ import json
 import os
 import pathlib
 import signal
-import sqlite3
 import subprocess
 import time
 from datetime import datetime, timezone
 from typing import Any
+from urllib import request as urllib_request
 
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def load_record(metadata_path: pathlib.Path, job_id: str) -> dict[str, Any]:
-    with sqlite3.connect(metadata_path) as conn:
-        row = conn.execute(
-            "SELECT payload FROM records WHERE namespace = ? AND record_id = ?",
-            ("rl_jobs", job_id),
-        ).fetchone()
-    if row is None:
-        raise KeyError(f"Missing rl_jobs record: {job_id}")
-    return json.loads(row[0])
-
-
-def save_record(metadata_path: pathlib.Path, job_id: str, record: dict[str, Any]) -> None:
-    record["updated_at"] = utc_now()
-    with sqlite3.connect(metadata_path) as conn:
-        conn.execute(
-            """
-            INSERT INTO records(namespace, record_id, payload, updated_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(namespace, record_id)
-            DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at
-            """,
-            ("rl_jobs", job_id, json.dumps(record, sort_keys=True), record["updated_at"]),
-        )
-
-
-def mark(metadata_path: pathlib.Path, job_id: str, **updates: Any) -> dict[str, Any]:
-    record = load_record(metadata_path, job_id)
-    record.update({key: value for key, value in updates.items() if value is not None})
-    save_record(metadata_path, job_id, record)
-    return record
 
 
 def terminate(process: subprocess.Popen, sig: signal.Signals = signal.SIGTERM) -> None:
@@ -69,13 +37,35 @@ def terminate(process: subprocess.Popen, sig: signal.Signals = signal.SIGTERM) -
         pass
 
 
-def run_job(request_path: pathlib.Path) -> None:
-    running_path = request_path.with_suffix(".running")
-    request_path.rename(running_path)
-    payload = json.loads(running_path.read_text(encoding="utf-8"))
+def mark(api_url: str, api_token: str | None, job_id: str, **updates: Any) -> None:
+    payload = {key: value for key, value in updates.items() if value is not None}
+    body = json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if api_token:
+        headers["X-Nemotron-Tinker-Worker-Token"] = api_token
+    req = urllib_request.Request(
+        f"{api_url.rstrip('/')}/internal/rl/jobs/{job_id}/mark",
+        data=body,
+        headers=headers,
+        method="POST",
+    )
+    with urllib_request.urlopen(req, timeout=30) as response:
+        response.read()
+
+
+def run_job(request_path: pathlib.Path, *, api_url: str, api_token: str | None, state_dir: pathlib.Path) -> None:
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
     job_id = payload["job_id"]
-    metadata_path = pathlib.Path(payload["metadata_path"])
-    log_path = pathlib.Path(payload["log_path"])
+    running_path = state_dir / "running" / f"{job_id}.json"
+    done_path = state_dir / "done" / f"{job_id}.json"
+    failed_path = state_dir / "failed" / f"{job_id}.json"
+    if done_path.exists() or running_path.exists() or failed_path.exists():
+        return
+    running_path.parent.mkdir(parents=True, exist_ok=True)
+    done_path.parent.mkdir(parents=True, exist_ok=True)
+    failed_path.parent.mkdir(parents=True, exist_ok=True)
+    running_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    log_path = state_dir / "logs" / f"{job_id}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     command = [str(item) for item in payload["command"]]
     max_runtime_seconds = payload.get("max_runtime_seconds")
@@ -84,8 +74,9 @@ def run_job(request_path: pathlib.Path) -> None:
         cwd = pathlib.Path("/")
 
     try:
-        mark(metadata_path, job_id, status="running")
+        mark(api_url, api_token, job_id, status="running", log_path=str(log_path))
         with log_path.open("ab") as log_fp:
+            log_fp.write((f"Host launcher started: {utc_now()}\n").encode("utf-8"))
             log_fp.write(("Host launcher command: " + " ".join(command) + "\n\n").encode("utf-8"))
             process = subprocess.Popen(
                 command,
@@ -94,7 +85,7 @@ def run_job(request_path: pathlib.Path) -> None:
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
             )
-            mark(metadata_path, job_id, pid=process.pid)
+            mark(api_url, api_token, job_id, pid=process.pid)
             try:
                 returncode = process.wait(timeout=max_runtime_seconds)
             except subprocess.TimeoutExpired:
@@ -105,20 +96,28 @@ def run_job(request_path: pathlib.Path) -> None:
                     terminate(process, signal.SIGKILL)
                     returncode = process.wait()
                 mark(
-                    metadata_path,
+                    api_url,
+                    api_token,
                     job_id,
                     status="timed_out",
                     returncode=returncode,
                     error=f"RL job exceeded max_runtime_seconds={max_runtime_seconds}",
                 )
+                done_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
                 return
-        mark(metadata_path, job_id, status="succeeded" if returncode == 0 else "failed", returncode=returncode)
+        mark(api_url, api_token, job_id, status="succeeded" if returncode == 0 else "failed", returncode=returncode)
+        done_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     except Exception as exc:
-        mark(metadata_path, job_id, status="failed", error=f"{type(exc).__name__}: {exc}")
-    finally:
-        done_path = running_path.with_suffix(".done")
+        failed_path.write_text(
+            json.dumps({"payload": payload, "error": f"{type(exc).__name__}: {exc}"}), encoding="utf-8"
+        )
         try:
-            running_path.rename(done_path)
+            mark(api_url, api_token, job_id, status="failed", error=f"{type(exc).__name__}: {exc}")
+        except Exception:
+            pass
+    finally:
+        try:
+            running_path.unlink()
         except FileNotFoundError:
             pass
 
@@ -126,16 +125,25 @@ def run_job(request_path: pathlib.Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run host-side NeMo-RL jobs queued by Nemotron Tinker.")
     parser.add_argument("--scratch-dir", required=True, help="Nemotron Tinker scratch directory.")
+    parser.add_argument("--api-url", default="http://127.0.0.1:18080", help="Nemotron Tinker API URL.")
+    parser.add_argument("--api-token", default=os.environ.get("NEMOTRON_TINKER_HOST_WORKER_TOKEN"))
+    parser.add_argument("--state-dir", help="Worker-owned state and log directory.")
     parser.add_argument("--poll-seconds", type=float, default=2.0)
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
 
     queue_dir = pathlib.Path(args.scratch_dir) / "tinker_api" / "host_rl_queue"
     queue_dir.mkdir(parents=True, exist_ok=True)
+    state_dir = (
+        pathlib.Path(args.state_dir)
+        if args.state_dir
+        else pathlib.Path(args.scratch_dir).parent / (pathlib.Path(args.scratch_dir).name + "_host_rl_launcher")
+    )
+    state_dir.mkdir(parents=True, exist_ok=True)
     while True:
         request_paths = sorted(queue_dir.glob("rljob_*.json"))
         for request_path in request_paths:
-            run_job(request_path)
+            run_job(request_path, api_url=args.api_url, api_token=args.api_token, state_dir=state_dir)
         if args.once:
             return
         time.sleep(args.poll_seconds)

@@ -527,7 +527,7 @@
         <div class="mode-list">
           <button class="mode active" data-mode="flywheel"><b>Flywheel</b><span>Data -> SFT -> RL -> eval -> inference.</span></button>
           <button class="mode" data-mode="sft"><b>Train Adapter</b><span>Create LoRAs and run SFT train_steps.</span></button>
-          <button class="mode" data-mode="rl"><b>RL + Eval</b><span>Rollouts, rewards, resident RL, or NeMo-RL jobs.</span></button>
+          <button class="mode" data-mode="rl"><b>RL + Eval</b><span>Rollouts, rewards, resident RL updates, or external NeMo-RL jobs.</span></button>
         </div>
         <div class="summary-card">
           <strong>Current workspace</strong>
@@ -549,12 +549,12 @@
           <div class="steps">
             <div class="step active"><b>1</b>Data: upload SFT rows, rollout prompts, rewards, and eval sets.</div>
             <div class="step"><b>2</b>SFT: create a LoRA and teach the first behavior with train_steps.</div>
-            <div class="step"><b>3</b>RL: collect rollouts, score them, and improve the same resident adapter.</div>
+            <div class="step"><b>3</b>RL: collect rollouts, score them, and improve the same resident adapter when using the API RL path.</div>
             <div class="step"><b>4</b>Inference: sample, evaluate, add failures back to data, and repeat.</div>
           </div>
           <div class="summary-card">
             <strong>Use case view</strong>
-            <span class="tiny">Gym is a rollout collector. Resident RL LoRA is the API path that trains an adapter from rewards. NeMo-RL is for launching a separate dedicated RL job. They all belong to the RL/evaluation part of the flywheel.</span>
+            <span class="tiny">Gym is a rollout collector. Resident RL LoRA is the API path that trains the loaded adapter from rewards. NeMo-RL Launch starts a separate dedicated RL job in another process or container.</span>
           </div>
           <div class="big-actions">
             <button class="primary" data-mode-jump="sft">Go To SFT Training</button>
@@ -687,13 +687,13 @@ Answer:</textarea></label>
 
       <section data-panel="rl">
           <div class="section-head">
-            <h2>NeMo-RL Bridge</h2>
-            <span class="tiny">Launch or dry-run GRPO from Nemotron Tinker.</span>
+            <h2>External NeMo-RL Job</h2>
+            <span class="tiny">Launch or dry-run a separate GRPO job from the Nemotron Tinker control plane.</span>
           </div>
         <div class="body">
           <div class="summary-card">
             <strong>Launch note</strong>
-            <span class="tiny">Show RL Command is safe and works from this UI. Launch RL uses a host worker by default. Pull the NeMo-RL image once on a new host before timing short jobs.</span>
+            <span class="tiny">This does not train the resident Nemotron model in memory. It starts a separate NeMo-RL job, usually in its own container, and can run while SFT/inference stay online.</span>
           </div>
           <div class="two">
             <label>RL repo dir<input id="rl-repo" value="" /></label>

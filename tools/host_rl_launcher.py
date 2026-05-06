@@ -24,6 +24,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 from urllib import request as urllib_request
+from urllib.error import URLError
 
 
 def utc_now() -> str:
@@ -51,6 +52,56 @@ def mark(api_url: str, api_token: str | None, job_id: str, **updates: Any) -> No
     )
     with urllib_request.urlopen(req, timeout=30) as response:
         response.read()
+
+
+def get_status(api_url: str, api_token: str | None, job_id: str) -> str | None:
+    headers = {}
+    if api_token:
+        headers["X-Nemotron-Tinker-Worker-Token"] = api_token
+    req = urllib_request.Request(
+        f"{api_url.rstrip('/')}/rl/jobs/{job_id}",
+        headers=headers,
+        method="GET",
+    )
+    try:
+        with urllib_request.urlopen(req, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, URLError, json.JSONDecodeError):
+        return None
+    status = payload.get("status")
+    return status if isinstance(status, str) else None
+
+
+def wait_for_process(
+    process: subprocess.Popen,
+    *,
+    api_url: str,
+    api_token: str | None,
+    job_id: str,
+    max_runtime_seconds: float | None,
+    poll_seconds: float,
+) -> tuple[str, int]:
+    started_at = time.monotonic()
+    while True:
+        returncode = process.poll()
+        if returncode is not None:
+            return ("finished", returncode)
+        if max_runtime_seconds is not None and time.monotonic() - started_at > max_runtime_seconds:
+            terminate(process)
+            try:
+                return ("timed_out", process.wait(timeout=30))
+            except subprocess.TimeoutExpired:
+                terminate(process, signal.SIGKILL)
+                return ("timed_out", process.wait())
+        status = get_status(api_url, api_token, job_id)
+        if status == "canceling":
+            terminate(process)
+            try:
+                return ("canceled", process.wait(timeout=30))
+            except subprocess.TimeoutExpired:
+                terminate(process, signal.SIGKILL)
+                return ("canceled", process.wait())
+        time.sleep(poll_seconds)
 
 
 def run_job(request_path: pathlib.Path, *, api_url: str, api_token: str | None, state_dir: pathlib.Path) -> None:
@@ -86,15 +137,15 @@ def run_job(request_path: pathlib.Path, *, api_url: str, api_token: str | None, 
                 start_new_session=True,
             )
             mark(api_url, api_token, job_id, pid=process.pid)
-            try:
-                returncode = process.wait(timeout=max_runtime_seconds)
-            except subprocess.TimeoutExpired:
-                terminate(process)
-                try:
-                    returncode = process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    terminate(process, signal.SIGKILL)
-                    returncode = process.wait()
+            outcome, returncode = wait_for_process(
+                process,
+                api_url=api_url,
+                api_token=api_token,
+                job_id=job_id,
+                max_runtime_seconds=max_runtime_seconds,
+                poll_seconds=2.0,
+            )
+            if outcome == "timed_out":
                 mark(
                     api_url,
                     api_token,
@@ -103,6 +154,10 @@ def run_job(request_path: pathlib.Path, *, api_url: str, api_token: str | None, 
                     returncode=returncode,
                     error=f"RL job exceeded max_runtime_seconds={max_runtime_seconds}",
                 )
+                done_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+                return
+            if outcome == "canceled":
+                mark(api_url, api_token, job_id, status="canceled", returncode=returncode)
                 done_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
                 return
         mark(api_url, api_token, job_id, status="succeeded" if returncode == 0 else "failed", returncode=returncode)

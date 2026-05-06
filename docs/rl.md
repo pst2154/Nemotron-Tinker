@@ -120,6 +120,11 @@ NeMo-RL checkout or container. That path is useful for testing official NeMo-RL
 GRPO recipes, including LoRA-enabled recipes, but it is not the same as the
 resident Tinker LoRA service.
 
+In the operator UI, **Launch RL Job** uses this external bridge. It does not
+train the same in-memory resident Nemotron model that the SFT page uses. The
+resident service can stay online for SFT and inference while the NeMo-RL job
+loads its own policy model in a separate process or container.
+
 Use it when:
 
 - You want a dedicated NeMo-RL job.

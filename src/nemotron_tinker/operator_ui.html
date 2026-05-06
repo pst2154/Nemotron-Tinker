@@ -625,51 +625,51 @@ Answer:</textarea></label>
 
       <section data-panel="rl">
         <div class="section-head">
-          <h2>RL + Evaluation Toolkit</h2>
-          <span class="tiny">Collect rollouts, score them, improve the same resident adapter, then sample it.</span>
+          <h2>Resident RL Goal</h2>
+          <span class="tiny">Teach each adapter to prefer a target answer, then sample the same adapter again.</span>
         </div>
         <div class="body">
           <div class="steps">
-            <div class="step active"><b>1</b>Gym / API: collect policy rollouts with token logprobs.</div>
-            <div class="step"><b>2</b>Reward: score completions with rules, verifiers, or evals.</div>
-            <div class="step"><b>3</b>Resident RL LoRA: train this service's adapter with RL loss inputs.</div>
-            <div class="step"><b>4</b>Sample: test the same adapter after the RL update.</div>
+            <div class="step active"><b>1</b>Goal: choose the exact behavior each adapter should prefer.</div>
+            <div class="step"><b>2</b>Attempt: sample the current resident adapter on that prompt.</div>
+            <div class="step"><b>3</b>Reward: give credit only when the attempt contains the target text.</div>
+            <div class="step"><b>4</b>Train and sample: reinforce the same LoRA, then test it again.</div>
           </div>
           <div class="summary-card">
-            <strong>Same model path only</strong>
-            <span class="tiny">This page only uses the resident Nemotron-Tinker model for rollout collection, RL updates, and sampling.</span>
+            <strong>What this is showing</strong>
+            <span class="tiny">Atlas should learn the apples response and Borealis should learn the weather response. The base model stays loaded once; only the resident LoRA adapters are updated.</span>
           </div>
         </div>
       </section>
 
       <section data-panel="rl">
         <div class="section-head">
-          <h2>Gym Rollouts</h2>
-          <span class="tiny">Collect OpenAI-compatible policy samples for RL training.</span>
+          <h2>Try One Adapter</h2>
+          <span class="tiny">A rollout is just an attempt from the current adapter before or after RL.</span>
         </div>
         <div class="body">
           <div class="two">
             <label>Resident model / run name<input id="gym-model" value="atlas" /></label>
             <label>Max output tokens<input id="gym-max-output" type="number" min="1" value="16" /></label>
           </div>
-          <label>Prompt<textarea id="gym-prompt">Answer in one short sentence: what is adapter routing?</textarea></label>
+          <label>Prompt<textarea id="gym-prompt">Say exactly: use atlas for apples</textarea></label>
           <div class="big-actions">
-            <button id="gym-sample" class="blue">Collect Rollout</button>
-            <button id="gym-copy-note">Show Converter Command</button>
+            <button id="gym-sample" class="blue">Sample One Attempt</button>
+            <button id="gym-copy-note">Show Payload Shape</button>
           </div>
-          <pre id="gym-output" class="sample">Gym rollout output appears here.</pre>
+          <pre id="gym-output" class="sample">A sampled attempt appears here.</pre>
         </div>
       </section>
 
       <section data-panel="rl">
         <div class="section-head">
-          <h2>Resident RL LoRA</h2>
-          <span class="tiny">Train the same loaded adapters used by SFT and inference.</span>
+          <h2>Train Toward Goal</h2>
+          <span class="tiny">Reward matching attempts and reinforce the same resident adapters.</span>
         </div>
         <div class="body">
           <div class="summary-card">
-            <strong>Same base model path</strong>
-            <span class="tiny">This samples from the resident run, scores those completions, and submits train_steps back to that same run.</span>
+            <strong>How to read this</strong>
+            <span class="tiny">Prompt is the challenge. Reward contains is the target text. Training samples attempts, rewards matches, and updates the same LoRA adapter.</span>
           </div>
           <div class="adapters">
             <div class="adapter ready">
@@ -699,10 +699,10 @@ Say exactly: use atlas for apples</textarea></label>
             <label>Learning rate<input id="resident-rl-lr" value="0.00005" /></label>
           </div>
           <div class="big-actions">
-            <button id="resident-rl-train-both" class="primary">Run RL For Both</button>
-            <button id="resident-rl-sample-both" class="blue">Sample Both RL</button>
-            <button id="resident-rl-train" class="primary">Run Resident RL</button>
-            <button id="resident-rl-sample" class="blue">Sample Resident Run</button>
+            <button id="resident-rl-sample-both" class="blue">1. Sample Both Before/After</button>
+            <button id="resident-rl-train-both" class="primary">2. Train Both Toward Goals</button>
+            <button id="resident-rl-sample" class="blue">Sample One</button>
+            <button id="resident-rl-train" class="primary">Train One</button>
           </div>
           <div id="resident-rl-progress" class="progress-wrap">
             <div class="progress-bar"><div id="resident-rl-progress-fill" class="progress-fill"></div></div>
@@ -927,7 +927,7 @@ Say exactly: use atlas for apples</textarea></label>
         const notes = {
           flywheel: "Follow the adapter flywheel: data, SFT, RL improvement, evaluation, inference.",
           sft: "SFT uses the SDK-style createTrainingClient, sftDatum, trainSteps, and sample loop.",
-          rl: "RL + Eval samples, scores, and trains the same resident adapter on the same loaded model.",
+          rl: "Resident RL teaches a target behavior by sampling attempts, rewarding matches, and updating the same LoRA.",
         };
         $("mode-note").textContent = notes[mode];
         $("next-action").textContent =
@@ -935,7 +935,7 @@ Say exactly: use atlas for apples</textarea></label>
             ? "Start with data, then run SFT."
             : mode === "sft"
             ? "Create two training clients, train, then sample."
-            : "Run Resident RL, then sample the same resident run.";
+            : "Sample attempts, train toward the goal, then sample again.";
         render();
       }
 
@@ -1231,7 +1231,7 @@ Say exactly: use atlas for apples</textarea></label>
       }
 
       async function collectGymRollout() {
-        setBusy("gym", "Collecting...", "gym-sample");
+        setBusy("gym", "Sampling...", "gym-sample");
         try {
           const response = await sdk.openAiResponse(
             $("gym-model").value.trim() || "atlas",
@@ -1240,7 +1240,7 @@ Say exactly: use atlas for apples</textarea></label>
           );
           $("gym-output").textContent = JSON.stringify(response, null, 2);
           raw(response);
-          toast("Gym rollout collected.");
+          toast("Sampled one attempt.");
         } finally {
           clearBusy();
         }
@@ -1248,15 +1248,17 @@ Say exactly: use atlas for apples</textarea></label>
 
       function showGymConverterCommand() {
         $("gym-output").textContent = [
-          "python tools/gym_rollouts_to_tinker_rl.py \\",
-          "  --input-jsonl /path/to/gym_rollouts.jsonl \\",
-          "  --output-json /tmp/tinker_rl_payload.json \\",
-          "  --base-model /models/nemotron-nano-30b-a3b-bf16 \\",
-          "  --cache-dir /tmp/nemotron_tinker_hf \\",
-          "  --run-id run_... \\",
-          "  --loss-fn importance_sampling \\",
-          "  --reward-baseline 0.5 \\",
-          "  --microbatch-size 4",
+          "Resident RL payload shape:",
+          "",
+          "{",
+          "  prompts: [\"Say exactly: use atlas for apples\"],",
+          "  reward_mode: \"contains\",",
+          "  reward_contains: \"use atlas for apples\",",
+          "  steps: 4,",
+          "  loss_fn: \"importance_sampling\"",
+          "}",
+          "",
+          "The service samples attempts, scores them, and trains the same resident adapter.",
         ].join("\n");
       }
 

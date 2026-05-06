@@ -1160,6 +1160,38 @@ def test_mixed_lora_server_preserves_rl_config_metrics_across_microbatches(monke
     assert metrics["importance_ratio_mean"] == 1.0
 
 
+def test_resident_rl_trains_same_run_with_sampled_logprobs(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
+    app = server.create_app(base_model="fake-model", scratch_dir=tmp_path)
+    client = fastapi_testclient.TestClient(app)
+    created = client.post("/runs", json={"name": "atlas"}).json()
+
+    response = client.post(
+        f"/runs/{created['run_id']}/resident_rl",
+        json={
+            "prompts": ["say atlas"],
+            "rollouts_per_prompt": 2,
+            "max_new_tokens": 4,
+            "reward_mode": "contains",
+            "reward_contains": created["adapter_id"],
+            "steps": 2,
+            "learning_rate": 0.001,
+            "microbatch_size": 1,
+            "loss_fn": "importance_sampling",
+            "run_async": False,
+        },
+    ).json()
+
+    assert response["run"]["run_id"] == created["run_id"]
+    assert response["train_job"]["kind"] == "train_steps"
+    assert response["train_job"]["status"] == "succeeded"
+    assert response["train_job"]["progress"]["step"] == 2
+    assert response["rollout_count"] == 2
+    assert response["reward_summary"]["mean"] == 1.0
+    assert response["train_response"]["runs"][created["run_id"]]["optimizer_steps"] == 2
+    assert all(row["prompt"] == "say atlas" for row in response["rollouts"])
+
+
 def test_mixed_lora_server_submits_async_train_job(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
     app = server.create_app(base_model="fake-model", scratch_dir=tmp_path)

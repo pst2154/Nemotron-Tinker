@@ -34,6 +34,37 @@ The current policy logprob path keeps gradients enabled during training. This
 is required for RL LoRA updates; old service builds that gather current
 logprobs under `torch.no_grad()` will not actually train the adapter.
 
+## Resident RL Endpoint
+
+Use this when the requirement is one hot base model serving SFT, RL updates,
+and inference through the same resident adapter:
+
+```text
+POST /runs/{run_id}/resident_rl
+```
+
+The endpoint samples from `{run_id}`, scores each completion with a simple
+built-in reward rule, converts sampled token/logprob traces into RL datums, and
+submits `/train_steps` for the same run. The operator UI button **Run Resident
+RL** uses this path.
+
+```json
+{
+  "prompts": ["Say exactly: use atlas for apples"],
+  "reward_mode": "contains",
+  "reward_contains": "atlas",
+  "rollouts_per_prompt": 2,
+  "max_new_tokens": 12,
+  "steps": 4,
+  "learning_rate": 0.00005,
+  "loss_fn": "importance_sampling",
+  "run_async": true
+}
+```
+
+Reward modes are intentionally small and inspectable for V1 testing:
+`contains`, `concise`, `integer`, and `nonempty`.
+
 ## Run The RL Recipe
 
 ```bash

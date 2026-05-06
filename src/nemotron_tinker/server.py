@@ -55,6 +55,7 @@ _, Field = safe_import_from("pydantic", "Field")
 MetadataBackend = Literal["sqlite", "json"]
 RLLauncher = Literal["local", "docker", "host"]
 RLRunner = Literal["uv", "python"]
+ResidentRLRewardMode = Literal["concise", "integer", "nonempty", "contains"]
 TENANT_HEADER = "x-tinker-tenant-id"
 
 if not HAS_PYDANTIC:  # pragma: no cover
@@ -193,6 +194,28 @@ class TrainStepsRequest(BaseModel):
     save_names: dict[str, str] = Field(default_factory=dict)
     run_async: bool = False
     tenant_id: Optional[str] = None
+    idempotency_key: Optional[str] = None
+
+
+class ResidentRLTrainRequest(BaseModel):
+    """Collect resident rollouts and train the same LoRA adapter with an RL loss."""
+
+    prompts: list[str]
+    rollouts_per_prompt: int = 1
+    max_new_tokens: int = 32
+    temperature: float = 0.8
+    top_p: float = 0.95
+    reward_mode: ResidentRLRewardMode = "nonempty"
+    reward_contains: Optional[str] = None
+    reward_baseline: Optional[float] = None
+    reward_scale: float = 1.0
+    steps: int = 1
+    learning_rate: float = 2e-5
+    microbatch_size: Optional[int] = None
+    loss_fn: str = "importance_sampling"
+    loss_fn_config: dict[str, float] = Field(default_factory=dict)
+    save_name: Optional[str] = None
+    run_async: bool = True
     idempotency_key: Optional[str] = None
 
 
@@ -345,6 +368,17 @@ class TrainStepsResponse(BaseModel):
     outputs: dict[str, Any]
 
 
+class ResidentRLTrainResponse(BaseModel):
+    """Resident RL rollout collection and train submission response."""
+
+    run: RunRecord
+    train_job: JobRecord
+    train_response: Optional[dict[str, Any]] = None
+    rollout_count: int
+    reward_summary: dict[str, float]
+    rollouts: list[dict[str, Any]]
+
+
 class ForwardBackwardResponse(BaseModel):
     """Forward/backward response with run metadata."""
 
@@ -452,6 +486,64 @@ def _datum_from_request(request: DatumRequest) -> Datum:
     return Datum(
         model_input=ModelInput.from_ints(request.model_input.tokens),
         loss_fn_inputs=loss_fn_inputs,
+    )
+
+
+def _resident_rl_reward(text: str, mode: ResidentRLRewardMode, reward_contains: Optional[str]) -> float:
+    stripped = text.strip()
+    if mode == "nonempty":
+        return 1.0 if stripped else -1.0
+    if mode == "concise":
+        words = stripped.split()
+        reward = 1.0 if 1 <= len(words) <= 12 else -0.25
+        if "\n" in stripped:
+            reward -= 0.25
+        if len(stripped) > 120:
+            reward -= 0.5
+        return reward
+    if mode == "integer":
+        if stripped.lstrip("+-").rstrip(".,").isdigit():
+            return 1.25
+        if any(char.isdigit() for char in stripped) and len(stripped.split()) <= 6:
+            return 0.5
+        return -0.5
+    if mode == "contains":
+        needle = (reward_contains or "").strip().lower()
+        if not needle:
+            raise ValueError("reward_contains is required when reward_mode='contains'")
+        return 1.0 if needle in stripped.lower() else -0.5
+    raise ValueError(f"Unsupported resident RL reward_mode={mode!r}")
+
+
+def _resident_rl_datum_from_trace(
+    *,
+    tokens: list[int],
+    prompt_token_count: int,
+    generated_logprobs: list[float],
+    advantage: float,
+) -> DatumRequest:
+    if len(tokens) < 2:
+        raise ValueError("Resident RL rollout needs at least two tokens")
+    prompt_label_count = max(0, min(prompt_token_count, len(tokens)) - 1)
+    target_count = len(tokens) - 1
+    completion_count = max(0, target_count - prompt_label_count)
+    logprobs = [0.0] * prompt_label_count + list(generated_logprobs[:completion_count])
+    if len(logprobs) < target_count:
+        logprobs.extend([0.0] * (target_count - len(logprobs)))
+    weights = [0.0] * prompt_label_count + [1.0] * completion_count
+    if len(weights) < target_count:
+        weights.extend([0.0] * (target_count - len(weights)))
+    advantages = [0.0] * prompt_label_count + [float(advantage)] * completion_count
+    if len(advantages) < target_count:
+        advantages.extend([0.0] * (target_count - len(advantages)))
+    return DatumRequest(
+        model_input=ModelInputRequest(tokens=tokens[:-1]),
+        loss_fn_inputs={
+            "target_tokens": {"tokens": tokens[1:]},
+            "weights": weights[:target_count],
+            "logprobs": logprobs[:target_count],
+            "advantages": advantages[:target_count],
+        },
     )
 
 
@@ -2371,11 +2463,12 @@ def create_app(
         store_idempotent_response("rl_jobs", request.idempotency_key, request, response)
         return response
 
-    @app.post("/train_steps")
-    def train_steps(request: TrainStepsRequest, http_request: Request) -> TrainStepsResponse | JobSubmitResponse:
-        request = _model_with_update(request, tenant_id=resolve_tenant_id(request.tenant_id, http_request))
-        for run_id in request.batches:
-            authorize_tenant(get_record(run_id).tenant_id, http_request)
+    def submit_train_steps_request(
+        request: TrainStepsRequest, http_request: Optional[Request] = None
+    ) -> TrainStepsResponse | JobSubmitResponse:
+        if http_request is not None:
+            for run_id in request.batches:
+                authorize_tenant(get_record(run_id).tenant_id, http_request)
         existing = get_idempotent_response("train_steps", request.idempotency_key, request)
         if existing is not None:
             return existing
@@ -2415,6 +2508,112 @@ def create_app(
         except Exception as exc:
             store_idempotent_error("train_steps", request.idempotency_key, request, exc)
             raise
+
+    @app.post("/train_steps")
+    def train_steps(request: TrainStepsRequest, http_request: Request) -> TrainStepsResponse | JobSubmitResponse:
+        request = _model_with_update(request, tenant_id=resolve_tenant_id(request.tenant_id, http_request))
+        return submit_train_steps_request(request, http_request)
+
+    @app.post("/runs/{run_id}/resident_rl", response_model=ResidentRLTrainResponse)
+    def resident_rl_train(
+        run_id: str, request: ResidentRLTrainRequest, http_request: Request
+    ) -> ResidentRLTrainResponse:
+        record = get_authorized_record(run_id, http_request)
+        enforce_tenant_rate_limit(record.tenant_id, "resident_rl")
+        if not request.prompts:
+            raise HTTPException(status_code=400, detail="Resident RL requires at least one prompt")
+        if request.rollouts_per_prompt <= 0:
+            raise HTTPException(status_code=400, detail="rollouts_per_prompt must be positive")
+        if request.steps <= 0:
+            raise HTTPException(status_code=400, detail="steps must be positive")
+        if request.loss_fn == "cross_entropy":
+            raise HTTPException(status_code=400, detail="Resident RL requires an RL loss_fn, not cross_entropy")
+
+        client = get_run(run_id)
+        sampling = SamplingParams(
+            max_new_tokens=request.max_new_tokens,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            do_sample=request.temperature > 0,
+            return_logprobs=True,
+        )
+        rollouts = []
+        try:
+            for prompt in request.prompts:
+                for _ in range(request.rollouts_per_prompt):
+                    output = service.sample(client.adapter_id, prompt, sampling).result()
+                    if output.generated_logprobs is None:
+                        raise RuntimeError("Resident RL sampling did not return generated logprobs")
+                    reward = _resident_rl_reward(output.text, request.reward_mode, request.reward_contains)
+                    rollouts.append(
+                        {
+                            "prompt": prompt,
+                            "text": output.text,
+                            "reward": reward,
+                            "tokens": output.tokens,
+                            "prompt_token_count": output.prompt_token_count,
+                            "generated_logprobs": output.generated_logprobs,
+                        }
+                    )
+        except Exception as exc:
+            mark_run_failed(run_id, exc)
+            raise
+
+        rewards = [float(row["reward"]) for row in rollouts]
+        baseline = request.reward_baseline
+        if baseline is None:
+            baseline = sum(rewards) / max(len(rewards), 1)
+        datums = [
+            _resident_rl_datum_from_trace(
+                tokens=[int(token) for token in row["tokens"]],
+                prompt_token_count=int(row["prompt_token_count"]),
+                generated_logprobs=[float(value) for value in row["generated_logprobs"]],
+                advantage=(float(row["reward"]) - baseline) * request.reward_scale,
+            )
+            for row in rollouts
+        ]
+        for row, datum in zip(rollouts, datums):
+            row["advantage"] = datum.loss_fn_inputs["advantages"][-1] if datum.loss_fn_inputs["advantages"] else 0.0
+
+        train_request = TrainStepsRequest(
+            batches={run_id: datums},
+            steps=request.steps,
+            learning_rate=request.learning_rate,
+            microbatch_size=request.microbatch_size,
+            loss_fn=request.loss_fn,
+            loss_fn_config=request.loss_fn_config,
+            save_names={run_id: request.save_name} if request.save_name else {},
+            run_async=request.run_async,
+            tenant_id=record.tenant_id,
+            idempotency_key=request.idempotency_key,
+        )
+        train_response = submit_train_steps_request(train_request)
+        train_job = train_response.job
+        reward_summary = {
+            "count": float(len(rewards)),
+            "mean": sum(rewards) / max(len(rewards), 1),
+            "min": min(rewards) if rewards else 0.0,
+            "max": max(rewards) if rewards else 0.0,
+            "baseline": float(baseline),
+        }
+        record_worker_operation(
+            "resident_rl",
+            [run_id],
+            {
+                "train_job_id": train_job.job_id,
+                "rollout_count": len(rollouts),
+                "loss_fn": request.loss_fn,
+                "reward_mode": request.reward_mode,
+            },
+        )
+        return ResidentRLTrainResponse(
+            run=get_record(run_id),
+            train_job=train_job,
+            train_response=_model_to_dict(train_response) if isinstance(train_response, TrainStepsResponse) else None,
+            rollout_count=len(rollouts),
+            reward_summary=reward_summary,
+            rollouts=rollouts,
+        )
 
     @app.post("/runs/{run_id}/forward_backward")
     def forward_backward(

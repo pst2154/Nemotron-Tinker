@@ -662,6 +662,36 @@ Answer:</textarea></label>
         </div>
       </section>
 
+      <section data-panel="rl">
+        <div class="section-head">
+          <h2>Resident RL LoRA</h2>
+          <span class="tiny">Train the same loaded adapter used by SFT and inference.</span>
+        </div>
+        <div class="body">
+          <div class="summary-card">
+            <strong>Same base model path</strong>
+            <span class="tiny">This samples from the resident run, scores those completions, and submits train_steps back to that same run. No separate NeMo-RL container is launched.</span>
+          </div>
+          <div class="three">
+            <label>Run name or id<input id="resident-rl-run" value="atlas" /></label>
+            <label>Reward<select id="resident-rl-reward"><option value="contains">contains text</option><option value="concise">concise</option><option value="integer">integer only</option><option value="nonempty">non-empty</option></select></label>
+            <label>Contains<input id="resident-rl-contains" value="atlas" /></label>
+          </div>
+          <label>Prompts<textarea id="resident-rl-prompts">Say exactly: use atlas for apples
+Say exactly: use atlas for apples</textarea></label>
+          <div class="four">
+            <label>RL steps<input id="resident-rl-steps" type="number" min="1" value="4" /></label>
+            <label>Rollouts/prompt<input id="resident-rl-rollouts" type="number" min="1" value="1" /></label>
+            <label>Max output tokens<input id="resident-rl-tokens" type="number" min="1" value="12" /></label>
+            <label>Learning rate<input id="resident-rl-lr" value="0.00005" /></label>
+          </div>
+          <div class="big-actions">
+            <button id="resident-rl-train" class="primary">Run Resident RL</button>
+          </div>
+          <pre id="resident-rl-output" class="sample">Resident RL output appears here.</pre>
+        </div>
+      </section>
+
       <section data-panel="sft">
         <div class="section-head">
           <h2>Results</h2>
@@ -882,6 +912,10 @@ logger.wandb_enabled=false</textarea></label>
             },
             true,
           );
+        }
+
+        residentRl(runId, payload) {
+          return this.call(`/runs/${runId}/resident_rl`, { method: "POST", body: JSON.stringify(payload) });
         }
 
         save(runId, name) {
@@ -1135,6 +1169,49 @@ logger.wandb_enabled=false</textarea></label>
 
       function latestRlJob() {
         return state.rlJobs[state.rlJobs.length - 1];
+      }
+
+      function resolveRun(value) {
+        const needle = value.trim();
+        const run = state.runs.find((item) => item.run_id === needle || item.adapter_id === needle || item.name === needle);
+        if (!run) throw new Error(`No resident run found for ${needle}`);
+        return run;
+      }
+
+      async function runResidentRl() {
+        setBusy("resident-rl", "Training...", "resident-rl-train");
+        try {
+          await refresh();
+          const run = resolveRun($("resident-rl-run").value);
+          const prompts = $("resident-rl-prompts").value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+          const response = await sdk.residentRl(run.run_id, {
+            prompts,
+            reward_mode: $("resident-rl-reward").value,
+            reward_contains: $("resident-rl-contains").value.trim() || null,
+            steps: Number($("resident-rl-steps").value),
+            rollouts_per_prompt: Number($("resident-rl-rollouts").value),
+            max_new_tokens: Number($("resident-rl-tokens").value),
+            learning_rate: Number($("resident-rl-lr").value),
+            loss_fn: "importance_sampling",
+            loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
+            run_async: true,
+          });
+          let job = response.train_job;
+          $("resident-rl-output").textContent = JSON.stringify(response, null, 2);
+          raw(response);
+          while (!["succeeded", "failed", "canceled"].includes(job.status)) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            job = await sdk.job(job.job_id);
+            $("resident-rl-output").textContent = JSON.stringify({ ...response, train_job: job }, null, 2);
+            await refresh();
+          }
+          if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
+          toast("Resident RL finished.");
+          $("resident-rl-output").textContent = JSON.stringify({ ...response, train_job: job }, null, 2);
+        } finally {
+          clearBusy();
+          await refresh();
+        }
       }
 
       async function refreshRlOutput(jobId = null) {
@@ -1433,6 +1510,7 @@ logger.wandb_enabled=false</textarea></label>
       document.querySelectorAll("[data-mode-jump]").forEach((button) => {
         button.onclick = () => setMode(button.dataset.modeJump);
       });
+      $("resident-rl-train").onclick = () => handle(runResidentRl);
       $("gym-sample").onclick = () => handle(collectGymRollout);
       $("gym-copy-note").onclick = showGymConverterCommand;
       $("rl-dry-run").onclick = () => handle(() => submitRlJob(true));

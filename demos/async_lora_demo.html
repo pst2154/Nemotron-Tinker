@@ -528,6 +528,38 @@
         gap: 10px;
       }
 
+      .demo-bars {
+        display: grid;
+        gap: 10px;
+      }
+
+      .demo-progress {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .demo-progress .progress-bar {
+        margin-top: 8px;
+      }
+
+      .demo-progress-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .demo-progress-head strong {
+        color: var(--text);
+      }
+
+      .demo-progress-head span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
       .demo-event {
         display: grid;
         grid-template-columns: 26px 1fr;
@@ -648,6 +680,7 @@
         </div>
         <div class="mode-list">
           <button class="mode active" data-mode="flywheel"><b>Flywheel</b><span>Data -> SFT -> RL -> eval -> inference.</span></button>
+          <button class="mode" data-mode="demo"><b>Guided Demo</b><span>Async end-to-end walkthrough with progress bars.</span></button>
           <button class="mode" data-mode="sft"><b>Train Adapter</b><span>Set adapter goals, train LoRAs, then sample.</span></button>
           <button class="mode" data-mode="rl"><b>RL + Eval</b><span>Rollouts, rewards, resident RL updates, and sampling.</span></button>
         </div>
@@ -679,16 +712,17 @@
             <span class="tiny">Gym-style sampling collects rollouts from the loaded adapter. Resident RL LoRA scores those rollouts and trains the same adapter on the same loaded base model.</span>
           </div>
           <div class="big-actions">
+            <button class="primary" data-mode-jump="demo">Open Guided Demo</button>
             <button class="primary" data-mode-jump="sft">Go To SFT Training</button>
             <button class="blue" data-mode-jump="rl">Go To RL + Eval</button>
           </div>
         </div>
       </section>
 
-      <section class="active-panel" data-panel="flywheel">
+      <section data-panel="demo">
         <div class="section-head">
           <h2>Guided Demo</h2>
-          <span class="tiny">One click runs the product story end to end.</span>
+          <span class="tiny">One async walkthrough of the product story end to end.</span>
         </div>
         <div class="body">
           <div class="summary-card">
@@ -700,6 +734,24 @@
             <button id="demo-defaults" class="blue">Use Demo Defaults</button>
             <button id="strong-rl-defaults" class="blue">Use Strong RL Test</button>
             <button id="reset-demo-log">Reset Demo Log</button>
+          </div>
+          <div class="demo-bars">
+            <div class="demo-progress">
+              <div class="demo-progress-head"><strong>Adapters</strong><span id="demo-create-label">waiting</span></div>
+              <div class="progress-bar"><div id="demo-create-fill" class="progress-fill"></div></div>
+            </div>
+            <div class="demo-progress">
+              <div class="demo-progress-head"><strong>SFT Training</strong><span id="demo-sft-label">waiting</span></div>
+              <div class="progress-bar"><div id="demo-sft-fill" class="progress-fill"></div></div>
+            </div>
+            <div class="demo-progress">
+              <div class="demo-progress-head"><strong>Resident RL</strong><span id="demo-rl-label">waiting</span></div>
+              <div class="progress-bar"><div id="demo-rl-fill" class="progress-fill"></div></div>
+            </div>
+            <div class="demo-progress">
+              <div class="demo-progress-head"><strong>Evaluation</strong><span id="demo-eval-label">waiting</span></div>
+              <div class="progress-bar"><div id="demo-eval-fill" class="progress-fill"></div></div>
+            </div>
           </div>
           <div id="demo-timeline" class="demo-timeline"></div>
           <pre id="demo-output" class="sample">Demo log appears here.</pre>
@@ -1148,6 +1200,38 @@ Answer:</textarea></label>
         ].join("");
       }
 
+      function setDemoBar(name, step, total, label) {
+        const safeTotal = Math.max(Number(total) || 1, 1);
+        const safeStep = Math.max(0, Math.min(Number(step) || 0, safeTotal));
+        $(`demo-${name}-fill`).style.width = `${Math.round((safeStep / safeTotal) * 100)}%`;
+        $(`demo-${name}-label`).textContent = label || `${safeStep} / ${safeTotal}`;
+      }
+
+      function resetDemoBars() {
+        setDemoBar("create", 0, 1, "waiting");
+        setDemoBar("sft", 0, 1, "waiting");
+        setDemoBar("rl", 0, 1, "waiting");
+        setDemoBar("eval", 0, 1, "waiting");
+      }
+
+      async function waitForJobWithDemoBar(job, barName, detail) {
+        let current = job;
+        while (!["succeeded", "failed", "canceled"].includes(current.status)) {
+          const progress = current.progress || {};
+          const step = progress.step || 0;
+          const total = progress.total_steps || 1;
+          setDemoBar(barName, step, total, `${detail}: ${step} / ${total}`);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          current = await sdk.job(current.job_id);
+        }
+        const progress = current.progress || {};
+        const step = progress.step || progress.total_steps || 1;
+        const total = progress.total_steps || step || 1;
+        setDemoBar(barName, step, total, current.status);
+        if (current.status !== "succeeded") throw new Error(`${detail} ${current.status}: ${current.error || "no details"}`);
+        return current;
+      }
+
       function applyDemoDefaults() {
         $("steps").value = "20";
         $("lr").value = "0.0005";
@@ -1258,6 +1342,7 @@ Answer:</textarea></label>
         });
         const notes = {
           flywheel: "Follow the adapter flywheel: data, SFT, RL improvement, evaluation, inference.",
+          demo: "Run the whole async path with dedicated progress bars for create, SFT, RL, and eval.",
           sft: "SFT teaches each LoRA a target answer, then samples the same adapter to check the behavior.",
           rl: "Resident RL teaches a target behavior by sampling attempts, rewarding matches, and updating the same LoRA.",
         };
@@ -1265,6 +1350,8 @@ Answer:</textarea></label>
         $("next-action").textContent =
           mode === "flywheel"
             ? "Start with data, then run SFT."
+            : mode === "demo"
+            ? "Run the guided demo to watch the full async flow."
             : mode === "sft"
             ? "Create two LoRA adapters, train toward their goals, then sample."
             : "Sample attempts, train toward the goal, then sample again.";
@@ -1620,6 +1707,7 @@ Answer:</textarea></label>
         setBusy("guided-demo", "Running Demo...", "run-guided-demo");
         state.demoEvents = [];
         state.demoOutputs = null;
+        resetDemoBars();
         renderDemoComparison(null);
         try {
           applyDemoDefaults();
@@ -1628,32 +1716,92 @@ Answer:</textarea></label>
           updateLastDemoEvent("done", `Using ${workspace()} with ${state.runs.length} visible run(s).`);
 
           appendDemoEvent("Create adapters", "Creating Atlas and Borealis if they do not already exist.");
-          if (!atlas() || !borealis()) await createMissing();
+          setDemoBar("create", 0, 2, "checking existing adapters");
+          if (!atlas()) {
+            await sdk.createTrainingClient("atlas");
+            setDemoBar("create", 1, 2, "Atlas ready");
+          } else {
+            setDemoBar("create", 1, 2, "Atlas already exists");
+          }
+          await refresh();
+          if (!borealis()) {
+            await sdk.createTrainingClient("borealis");
+            setDemoBar("create", 2, 2, "Borealis ready");
+          } else {
+            setDemoBar("create", 2, 2, "Borealis already exists");
+          }
           await refresh();
           updateLastDemoEvent("done", "Atlas and Borealis are ready.");
 
-          appendDemoEvent("SFT train", "Training both adapters toward their first target answers.");
-          await trainBoth();
+          appendDemoEvent("SFT train", "Submitting async SFT train_steps for both adapters.");
+          const totalSteps = Number($("steps").value);
+          setDemoBar("sft", 0, totalSteps, "tokenizing demo datasets");
+          const trainBatches = await batches();
+          const sftStamp = versionStamp();
+          const sftSubmitted = await sdk.trainSteps(trainBatches, totalSteps, Number($("lr").value), {
+            [atlas().run_id]: `atlas-v${sftStamp}-sft`,
+            [borealis().run_id]: `borealis-v${sftStamp}-sft`,
+          });
+          raw(sftSubmitted);
+          const sftJob = await waitForJobWithDemoBar(sftSubmitted.job, "sft", "SFT training");
           await refresh();
-          updateLastDemoEvent("done", "SFT training finished for both adapters.");
+          updateLastDemoEvent("done", `SFT training finished: ${sftJob.job_id}.`);
 
           appendDemoEvent("SFT sample", "Sampling both adapters on their own prompts.");
+          setDemoBar("eval", 0, 3, "sampling after SFT");
           const [atlasSftRaw, borealisSftRaw] = await Promise.all([sample("atlas"), sample("borealis")]);
           const sftOutputs = {
             atlas: visibleText(atlasSftRaw, $("atlas-prompt").value),
             borealis: visibleText(borealisSftRaw, $("borealis-prompt").value),
           };
+          setDemoBar("eval", 1, 3, "SFT samples ready");
           updateLastDemoEvent("done", "Both SFT samples are visible in the Results panel.");
 
-          appendDemoEvent("Mixed RL", "Running one resident RL job for Atlas and Borealis on the same prompts.");
-          await runResidentRlBoth();
-          await refresh();
-          updateLastDemoEvent("done", "Mixed resident RL finished.");
-
-          appendDemoEvent("After RL sample", "Sampling both adapters again to compare the behavior change.");
+          appendDemoEvent("Mixed RL", "Collecting rollouts, adding target anchors, then submitting async resident RL.");
           const atlasRun = resolveRun("atlas");
           const borealisRun = resolveRun("borealis");
+          const rlSteps = Number($("resident-rl-steps").value);
+          const rolloutsPerPrompt = Number($("resident-rl-rollouts").value);
+          const plannedRollouts = 2 * rolloutsPerPrompt;
+          syncRlPromptsFromSft();
+          setDemoBar("rl", 0, rlSteps, `collecting ${plannedRollouts} rollout(s) before train job`);
+          const rlStamp = versionStamp();
+          const rlResponse = await sdk.residentRlMixed({
+            runs: [
+              {
+                run_id: atlasRun.run_id,
+                prompts: [$("resident-rl-atlas-prompt").value.trim()],
+                reward_mode: $("resident-rl-reward-mode").value,
+                reward_contains: $("resident-rl-atlas-contains").value.trim(),
+                save_name: `atlas-v${rlStamp}-rl`,
+              },
+              {
+                run_id: borealisRun.run_id,
+                prompts: [$("resident-rl-borealis-prompt").value.trim()],
+                reward_mode: $("resident-rl-reward-mode").value,
+                reward_contains: $("resident-rl-borealis-contains").value.trim(),
+                save_name: `borealis-v${rlStamp}-rl`,
+              },
+            ],
+            reward_baseline: 0.0,
+            steps: rlSteps,
+            rollouts_per_prompt: rolloutsPerPrompt,
+            max_new_tokens: Number($("resident-rl-tokens").value),
+            learning_rate: Number($("resident-rl-lr").value),
+            microbatch_size: 1,
+            loss_fn: "cispo",
+            loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
+            run_async: true,
+          });
+          raw(rlResponse);
+          const rlJob = await waitForJobWithDemoBar(rlResponse.train_job, "rl", "resident RL");
+          await refresh();
+          updateLastDemoEvent("done", `Mixed resident RL finished: ${rlJob.job_id}.`);
+
+          appendDemoEvent("After RL sample", "Sampling both adapters again to compare the behavior change.");
+          setDemoBar("eval", 2, 3, "sampling after RL");
           const rlSample = await sampleRlPair(atlasRun, borealisRun);
+          setDemoBar("eval", 3, 3, "comparison ready");
           updateLastDemoEvent("done", "After-RL samples are ready.");
 
           appendDemoEvent("Export ready", "Use Export LoRAs or Export RL LoRAs when you want artifacts.");
@@ -1662,7 +1810,13 @@ Answer:</textarea></label>
           state.demoOutputs = {
             sft: sftOutputs,
             rl: { atlas: rlSample.atlas, borealis: rlSample.borealis },
-            raw: { atlas_sft: atlasSftRaw, borealis_sft: borealisSftRaw, rl_sample: rlSample.raw },
+            raw: {
+              sft_job: sftJob,
+              rl_job: rlJob,
+              atlas_sft: atlasSftRaw,
+              borealis_sft: borealisSftRaw,
+              rl_sample: rlSample.raw,
+            },
           };
           renderDemoComparison(state.demoOutputs);
           toast("Guided demo finished.");
@@ -1952,6 +2106,7 @@ Answer:</textarea></label>
       $("reset-demo-log").onclick = () => {
         state.demoEvents = [];
         state.demoOutputs = null;
+        resetDemoBars();
         renderDemoTimeline();
         renderDemoComparison(null);
       };
@@ -1959,6 +2114,7 @@ Answer:</textarea></label>
       applyDemoDefaults();
       setMode("flywheel");
       syncRlPromptsFromSft();
+      resetDemoBars();
       renderDemoTimeline();
       refresh().catch((error) => toast(error.message, true));
       setInterval(() => refresh().catch(() => {}), 5000);

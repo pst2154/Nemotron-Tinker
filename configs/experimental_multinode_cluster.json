@@ -1,0 +1,43 @@
+{
+  "enabled": true,
+  "mode": "multi_node",
+  "rendezvous_backend": "c10d",
+  "rendezvous_endpoint": "node-0:29500",
+  "base_model": "/models/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+  "container_image": "nvcr.io/nvidia/nemo-automodel:26.04",
+  "parallelism": {
+    "strategy": "fsdp2",
+    "tp_size": 8,
+    "pp_size": 1,
+    "cp_size": 1,
+    "ep_size": 1,
+    "sequence_parallel": true,
+    "activation_checkpointing": true
+  },
+  "nodes": [
+    {
+      "node_id": "node-0",
+      "host": "node-0",
+      "gpus": 8,
+      "role": "worker",
+      "scratch_dir": "/home/scratch/nemotron_tinker/node-0",
+      "port": 18080,
+      "labels": {
+        "rack": "rack-a",
+        "fabric": "nvlink"
+      }
+    },
+    {
+      "node_id": "node-1",
+      "host": "node-1",
+      "gpus": 8,
+      "role": "worker",
+      "scratch_dir": "/home/scratch/nemotron_tinker/node-1",
+      "port": 18080,
+      "labels": {
+        "rack": "rack-a",
+        "fabric": "nvlink"
+      }
+    }
+  ]
+}

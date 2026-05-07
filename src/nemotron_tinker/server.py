@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any, Literal, Optional
 
+from nemotron_tinker.cluster import load_cluster_config
 from nemotron_tinker.mixed_client import (
     MixedLoraBackend,
     MixedLoraServiceClient,
@@ -1136,6 +1137,7 @@ def create_app(
     resume_interrupted_jobs_on_startup: bool = False,
     worker_processes: int = 0,
     rl_repo_dir: Optional[str] = None,
+    experimental_cluster_config: Optional[str] = None,
 ) -> FastAPI:
     """Create a single-process mixed-LoRA FastAPI app."""
     if not HAS_FASTAPI or not HAS_PYDANTIC:
@@ -1152,6 +1154,12 @@ def create_app(
         raise ValueError("tenant_rate_limit_per_minute must be positive")
     if worker_processes < 0:
         raise ValueError("worker_processes must be non-negative")
+    cluster_config = load_cluster_config(experimental_cluster_config)
+    if cluster_config.experimental:
+        print(
+            "WARNING: experimental multi-node config loaded; model execution remains in the single-node API process.",
+            flush=True,
+        )
 
     service = MixedLoraServiceClient(
         base_model=base_model,
@@ -1461,6 +1469,7 @@ def create_app(
             "num_records": len(records),
             "mode": "mixed_lora_single_process",
             "model_execution": "api_process",
+            "experimental_cluster": cluster_config.placement_plan(),
             "run_status_counts": status_counts,
             "rl_job_status_counts": rl_job_status_counts,
             "active_rl_process_count": active_rl_process_count,
@@ -1494,6 +1503,14 @@ def create_app(
     @app.get("/metrics", response_model=ServiceMetricsSnapshot)
     def metrics() -> ServiceMetricsSnapshot:
         return service_metrics.snapshot()
+
+    @app.get("/experimental/cluster")
+    def experimental_cluster() -> dict[str, Any]:
+        return cluster_config.placement_plan()
+
+    @app.get("/experimental/cluster/launch_manifest")
+    def experimental_cluster_launch_manifest() -> dict[str, Any]:
+        return cluster_config.launch_manifest()
 
     def text_sft_datum(request: TextSFTDatumRequest) -> DatumRequest:
         if request.use_chat_template:

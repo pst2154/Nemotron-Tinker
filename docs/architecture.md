@@ -95,9 +95,17 @@ artifacts under `/tmp/nemotron_tinker_hf`.
 
 ## Distributed Scope
 
-The prototype is single-node. It can run large local models when the model fits
-on the host, but it does not yet orchestrate multi-node rendezvous, rank
-placement, Slurm, Ray, or a distributed worker fleet.
+The validated prototype is single-node. It can run large local models when the
+model fits on the host. The experimental multi-node branch adds planning
+metadata and launch manifests, but it does not yet execute cross-node model
+operations.
+
+Experimental planning endpoints:
+
+- `GET /experimental/cluster`
+- `GET /experimental/cluster/launch_manifest`
+
+See [Experimental Multi-Node](multinode.md) for the exact scope.
 
 Expected production directions:
 

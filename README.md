@@ -29,6 +29,8 @@ workloads, inference, save, restore, and UI/API smoke paths.
   workloads, and sampling expectations.
 - [RL LoRA Workflows](docs/rl.md): rollout collection, RL losses, NeMo Gym
   bridge, and NeMo-RL bridge boundaries.
+- [Experimental Multi-Node](docs/multinode.md): planning endpoints and launch
+  manifests for future distributed worker fleets.
 - [Python SDK](docs/sdk.md): client objects, server-owned training, sampling,
   OpenAI/Gym calls, and recipes.
 

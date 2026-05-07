@@ -82,6 +82,11 @@ def main() -> None:
         default=os.environ.get("NEMO_RL_REPO_DIR"),
         help="Optional NeMo-RL checkout used by the Nemotron Tinker RL job bridge.",
     )
+    parser.add_argument(
+        "--experimental-cluster-config",
+        default=os.environ.get("NEMOTRON_TINKER_CLUSTER_CONFIG"),
+        help="Experimental JSON cluster descriptor for multi-node planning endpoints.",
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=18080)
     args = parser.parse_args()
@@ -108,6 +113,7 @@ def main() -> None:
         resume_interrupted_jobs_on_startup=args.resume_interrupted_jobs_on_startup,
         worker_processes=args.worker_processes,
         rl_repo_dir=args.rl_repo_dir,
+        experimental_cluster_config=args.experimental_cluster_config,
     )
     uvicorn.run(app, host=args.host, port=args.port)
 

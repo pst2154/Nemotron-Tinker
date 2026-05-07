@@ -202,6 +202,47 @@ def test_mixed_lora_server_serves_operator_ui(monkeypatch, tmp_path):
     assert 'id="resident-rl-train-both"' in response.text
 
 
+def test_mixed_lora_server_exposes_experimental_cluster_plan(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
+    cluster_config = tmp_path / "cluster.json"
+    cluster_config.write_text(
+        json.dumps(
+            {
+                "enabled": True,
+                "mode": "multi_node",
+                "rendezvous_endpoint": "node-0:29500",
+                "parallelism": {"strategy": "fsdp2", "tp_size": 2, "sequence_parallel": True},
+                "nodes": [
+                    {"node_id": "node-0", "host": "node-0", "gpus": 2, "scratch_dir": "/scratch/node-0"},
+                    {"node_id": "node-1", "host": "node-1", "gpus": 2, "scratch_dir": "/scratch/node-1"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = server.create_app(
+        base_model="fake-model",
+        scratch_dir=tmp_path,
+        experimental_cluster_config=str(cluster_config),
+    )
+    client = fastapi_testclient.TestClient(app)
+
+    plan = client.get("/experimental/cluster").json()
+    manifest = client.get("/experimental/cluster/launch_manifest").json()
+    health = client.get("/health").json()
+
+    assert plan["experimental"] is True
+    assert plan["status"] == "planning_only"
+    assert plan["world_size"] == 4
+    assert plan["parallelism"]["strategy"] == "fsdp2"
+    assert plan["parallelism"]["tp_size"] == 2
+    assert [rank["rank"] for rank in plan["ranks"]] == [0, 1, 2, 3]
+    assert manifest["commands"][0]["env"]["WORLD_SIZE"] == "4"
+    assert manifest["commands"][0]["env"]["MASTER_ADDR"] == "node-0"
+    assert health["experimental_cluster"]["world_size"] == 4
+    assert health["model_execution"] == "api_process"
+
+
 def test_mixed_lora_server_prepares_nemo_rl_docker_command(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "MixedLoraServiceClient", FakeMixedLoraServiceClient)
     rl_repo = tmp_path / "RL"

@@ -712,7 +712,7 @@
             <span class="tiny">Gym-style sampling collects rollouts from the loaded adapter. Resident RL LoRA scores those rollouts and trains the same adapter on the same loaded base model.</span>
           </div>
           <div class="big-actions">
-            <button class="primary" data-mode-jump="demo">Open Guided Demo</button>
+            <button id="flywheel-run-guided-demo" class="primary">Run Guided Demo</button>
             <button class="primary" data-mode-jump="sft">Go To SFT Training</button>
             <button class="blue" data-mode-jump="rl">Go To RL + Eval</button>
           </div>
@@ -1481,6 +1481,7 @@ Answer:</textarea></label>
         $("resident-rl-train-both").disabled = disabled || !hasBoth;
         $("resident-rl-sample-both").disabled = disabled || !hasBoth;
         $("resident-rl-export-both").disabled = disabled || !hasBoth;
+        $("flywheel-run-guided-demo").disabled = disabled || !hasWorkspace;
         $("run-guided-demo").disabled = disabled || !hasWorkspace;
         $("demo-defaults").disabled = disabled;
         $("strong-rl-defaults").disabled = disabled;
@@ -2096,6 +2097,10 @@ Answer:</textarea></label>
       $("resident-rl-train-both").onclick = () => handle(runResidentRlBoth);
       $("resident-rl-sample-both").onclick = () => handle(sampleResidentRlBoth);
       $("resident-rl-export-both").onclick = () => handle(exportRlBoth);
+      $("flywheel-run-guided-demo").onclick = () => {
+        setMode("demo");
+        handle(runGuidedDemo);
+      };
       $("run-guided-demo").onclick = () => handle(runGuidedDemo);
       $("demo-defaults").onclick = applyDemoDefaults;
       $("strong-rl-defaults").onclick = applyStrongRlDefaults;

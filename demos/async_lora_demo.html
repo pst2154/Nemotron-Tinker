@@ -3,25 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Nemotron Tinker</title>
+    <title>Nemotron Tinker Standalone Demo</title>
     <style>
       :root {
         --bg: #050607;
-        --panel: #101418;
-        --panel-2: #161b20;
-        --panel-3: #0b0e11;
         --ink: #f4f7f2;
         --muted: #9aa39a;
-        --green: #76b900;
-        --green-soft: rgba(118, 185, 0, 0.16);
-        --blue: #43a2ff;
-        --blue-soft: rgba(67, 162, 255, 0.14);
-        --gold: #c6ff00;
-        --gold-soft: rgba(198, 255, 0, 0.13);
-        --red: #ff5f57;
+        --panel: #111418;
+        --panel-2: #181d22;
         --line: rgba(255, 255, 255, 0.16);
-        --line-strong: rgba(118, 185, 0, 0.42);
-        --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+        --green: #76b900;
+        --green-soft: rgba(118, 185, 0, 0.18);
+        --blue: #43a2ff;
+        --blue-soft: rgba(67, 162, 255, 0.16);
+        --gold: #c6ff00;
+        --gold-soft: rgba(198, 255, 0, 0.16);
+        --red: #ff5f57;
+        --red-soft: rgba(255, 95, 87, 0.16);
+        --shadow: 0 20px 60px rgba(0, 0, 0, 0.36);
       }
 
       * {
@@ -30,602 +29,595 @@
 
       body {
         margin: 0;
-        min-height: 100vh;
         color: var(--ink);
         background:
-          linear-gradient(90deg, rgba(118, 185, 0, 0.055) 1px, transparent 1px),
-          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-          radial-gradient(circle at 14% 14%, rgba(118, 185, 0, 0.2), transparent 30%),
-          radial-gradient(circle at 86% 10%, rgba(67, 162, 255, 0.12), transparent 28%),
-          linear-gradient(135deg, #050607, #10161a 55%, #050607);
-        background-size: 40px 40px, 40px 40px, auto, auto, auto;
-        font-family: Avenir Next, Segoe UI, Helvetica Neue, sans-serif;
+          linear-gradient(90deg, rgba(118, 185, 0, 0.05) 1px, transparent 1px),
+          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+          radial-gradient(circle at 16% 8%, rgba(118, 185, 0, 0.18), transparent 32%),
+          radial-gradient(circle at 92% 18%, rgba(67, 162, 255, 0.12), transparent 30%),
+          var(--bg);
+        background-size: 42px 42px, 42px 42px, auto, auto, auto;
+        font-family: Avenir Next, Segoe UI, sans-serif;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
       }
 
       button {
-        min-height: 44px;
+        min-height: 46px;
         border: 1px solid var(--line);
         border-radius: 8px;
         padding: 10px 14px;
-        color: #081006;
-        background: var(--green);
-        cursor: pointer;
-        font: inherit;
-        font-weight: 900;
-      }
-
-      button:hover {
-        filter: brightness(1.08);
-      }
-
-      button.secondary {
         color: var(--ink);
-        background: rgba(255, 255, 255, 0.06);
+        background: linear-gradient(180deg, #22282f, #15191e);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+        cursor: pointer;
+        font-weight: 800;
       }
 
-      button.secondary.active {
-        color: #081006;
-        border-color: var(--green);
+      button:hover:not(:disabled) {
+        transform: translate(1px, 1px);
+        box-shadow: 3px 3px 0 var(--line);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+        box-shadow: none;
+      }
+
+      button.primary {
+        color: #fffdf7;
         background: var(--green);
+        color: #081006;
+      }
+
+      button.blue {
+        color: #fffdf7;
+        background: var(--blue);
+      }
+
+      button.warn {
+        color: #fffdf7;
+        background: var(--red);
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 9px 10px;
+        background: #0b0d10;
+        color: var(--ink);
+      }
+
+      textarea {
+        min-height: 92px;
+        resize: vertical;
+        line-height: 1.4;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
       }
 
       header {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: 1fr auto;
         gap: 20px;
         align-items: end;
-        padding: 26px clamp(18px, 4vw, 44px) 18px;
-        border-bottom: 1px solid rgba(118, 185, 0, 0.3);
-        background: rgba(5, 6, 7, 0.74);
+        padding: 24px clamp(16px, 4vw, 42px) 18px;
+        border-bottom: 1px solid rgba(118, 185, 0, 0.34);
+        background: rgba(8, 10, 12, 0.9);
       }
 
-      h1,
+      h1 {
+        margin: 0;
+        font-size: clamp(36px, 5vw, 72px);
+        line-height: 0.95;
+        font-weight: 900;
+      }
+
       h2,
       h3,
       p {
         margin: 0;
       }
 
-      h1 {
-        margin-top: 8px;
-        font-size: clamp(42px, 7vw, 96px);
-        line-height: 0.9;
-        font-weight: 950;
-        letter-spacing: 0;
+      .subline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .pill {
+        display: inline-flex;
+        min-height: 30px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 10px;
+        background: #0b0d10;
+        color: var(--muted);
+        font-size: 13px;
       }
 
       .brand {
-        display: inline-flex;
-        width: fit-content;
-        align-items: center;
-        border-radius: 999px;
-        padding: 6px 10px;
         color: #081006;
         background: var(--green);
-        font-size: 12px;
-        font-weight: 950;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+        border-color: var(--green);
+        font-weight: 900;
       }
 
-      .subtitle {
-        max-width: 780px;
-        margin-top: 12px;
-        color: var(--muted);
-        font-size: clamp(16px, 2vw, 19px);
-        line-height: 1.45;
-      }
-
-      .controls {
+      .top {
         display: grid;
+        grid-template-columns: minmax(180px, 1fr) auto;
         gap: 10px;
-        justify-items: end;
+        min-width: min(520px, 100%);
       }
 
-      .modebar {
+      .app-shell {
         display: grid;
-        grid-template-columns: repeat(3, minmax(112px, 1fr));
+        grid-template-columns: 310px minmax(0, 1fr);
+        gap: 18px;
+        padding: 18px clamp(16px, 4vw, 42px) 36px;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 16px;
+        align-self: start;
+        display: grid;
+        gap: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+        background: rgba(17, 20, 24, 0.94);
+        box-shadow: var(--shadow);
+      }
+
+      .sidebar h2 {
+        font-size: 18px;
+      }
+
+      .mode-list {
+        display: grid;
         gap: 8px;
       }
 
-      .modebar button {
-        min-height: 38px;
-        padding: 8px 10px;
-        font-size: 13px;
+      .mode {
+        min-height: 74px;
+        text-align: left;
+        color: var(--ink);
+        background: #0c0f12;
+      }
+
+      .mode.active {
+        border-color: var(--green);
+        background: var(--green-soft);
+        box-shadow: 0 0 0 1px rgba(118, 185, 0, 0.2), var(--shadow);
+      }
+
+      .mode b {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--green);
+      }
+
+      .mode span {
+        color: var(--muted);
+        font-size: 12px;
       }
 
       main {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
         gap: 18px;
-        padding: 18px clamp(18px, 4vw, 44px) 34px;
       }
 
-      .stage,
-      .side,
-      .samples {
+      [data-panel] {
+        display: none;
+      }
+
+      [data-panel].active-panel {
+        display: block;
+      }
+
+      section {
         border: 1px solid var(--line);
-        border-radius: 12px;
-        background: rgba(16, 20, 24, 0.9);
+        border-radius: 10px;
+        background: rgba(17, 20, 24, 0.92);
         box-shadow: var(--shadow);
       }
 
-      .stage {
-        position: relative;
-        min-height: 720px;
-        overflow: hidden;
-      }
-
-      .stage-head,
-      .side-head,
-      .samples-head {
+      .section-head {
         display: flex;
         justify-content: space-between;
         gap: 12px;
         align-items: center;
-        padding: 14px 16px;
-        border-bottom: 1px solid var(--line-strong);
-        background: linear-gradient(90deg, rgba(118, 185, 0, 0.18), rgba(16, 20, 24, 0.86));
+        padding: 13px 15px;
+        border-bottom: 1px solid rgba(118, 185, 0, 0.28);
+        background: linear-gradient(90deg, rgba(118, 185, 0, 0.18), rgba(24, 29, 34, 0.86));
       }
 
-      .stage-head h2,
-      .side-head h2,
-      .samples-head h2 {
-        font-size: 16px;
-        text-transform: uppercase;
+      .body {
+        display: grid;
+        gap: 14px;
+        padding: 15px;
       }
 
-      .clock {
-        color: var(--gold);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 13px;
-        font-weight: 900;
-      }
-
-      .kpis {
+      .steps {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
-        padding: 12px 16px 0;
+        gap: 12px;
       }
 
-      .kpi {
-        min-height: 76px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 12px;
-        background: var(--panel-3);
-      }
-
-      .kpi b {
-        display: block;
-        font-size: 24px;
-      }
-
-      .kpi span {
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 800;
-        text-transform: uppercase;
-      }
-
-      .flow {
-        position: relative;
-        display: grid;
-        grid-template-columns: 1.05fr 0.95fr 1.15fr 1fr;
-        gap: 14px;
-        min-height: 508px;
-        padding: 16px;
-      }
-
-      .lane {
-        position: relative;
-        min-height: 500px;
+      .step {
+        min-height: 120px;
         border: 1px solid var(--line);
         border-radius: 10px;
-        background: rgba(11, 14, 17, 0.76);
-        overflow: hidden;
+        padding: 14px;
+        background: #0c0f12;
       }
 
-      .lane::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        background: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-        background-size: 100% 36px;
-      }
-
-      .lane-title {
-        position: relative;
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        min-height: 42px;
-        align-items: center;
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--line);
-        color: var(--muted);
-        background: rgba(5, 6, 7, 0.68);
-        font-size: 12px;
-        font-weight: 950;
-        text-transform: uppercase;
-      }
-
-      .node-list {
-        position: relative;
-        display: grid;
-        gap: 10px;
-        padding: 12px;
-      }
-
-      .upload,
-      .queue-card,
-      .adapter,
-      .sample {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 11px;
-        background: var(--panel-2);
-      }
-
-      .upload {
-        transform: translateX(-116%);
-        opacity: 0;
-        border-color: rgba(67, 162, 255, 0.28);
-      }
-
-      .upload.visible {
-        transform: translateX(0);
-        opacity: 1;
-        transition: transform 420ms ease, opacity 420ms ease;
-      }
-
-      .upload.live,
-      .queue-card.live,
-      .adapter.live {
-        border-color: var(--gold);
-        box-shadow: 0 0 0 1px rgba(198, 255, 0, 0.15), 0 0 34px rgba(198, 255, 0, 0.12);
-      }
-
-      .upload.done,
-      .queue-card.done,
-      .adapter.done {
-        border-color: rgba(118, 185, 0, 0.72);
-        background: rgba(118, 185, 0, 0.11);
-      }
-
-      .row {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        align-items: baseline;
-      }
-
-      .row strong {
-        font-size: 17px;
-      }
-
-      .tag {
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 3px 7px;
-        color: var(--muted);
-        background: #090b0d;
-        font-size: 11px;
-        font-weight: 900;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      .tag.green {
-        border-color: rgba(118, 185, 0, 0.62);
-        color: var(--green);
-      }
-
-      .tag.blue {
-        border-color: rgba(67, 162, 255, 0.56);
-        color: var(--blue);
-      }
-
-      .meta {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 7px;
-        margin-top: 10px;
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .mono {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      }
-
-      .api-stack {
-        position: relative;
-        display: grid;
-        gap: 10px;
-        padding: 12px;
-      }
-
-      .api-step {
-        min-height: 88px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 12px;
-        background: rgba(67, 162, 255, 0.08);
-      }
-
-      .api-step.live {
-        border-color: var(--gold);
-        background: var(--gold-soft);
-      }
-
-      .api-step.done {
-        border-color: rgba(118, 185, 0, 0.62);
+      .step.done {
         background: var(--green-soft);
       }
 
-      .api-step strong {
+      .step.active {
+        background: var(--gold-soft);
+      }
+
+      .step.busy {
+        background: var(--blue-soft);
+        animation: pulse 1s ease-in-out infinite alternate;
+      }
+
+      .step b {
         display: block;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
+        font-size: 22px;
       }
 
-      .api-step span {
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .gpu {
-        position: relative;
-        min-height: 220px;
-        margin: 12px;
-        border: 2px solid rgba(118, 185, 0, 0.64);
-        border-radius: 14px;
-        background:
-          radial-gradient(circle at 50% 34%, rgba(118, 185, 0, 0.26), transparent 40%),
-          linear-gradient(180deg, rgba(118, 185, 0, 0.1), rgba(11, 14, 17, 0.96));
-        overflow: hidden;
-      }
-
-      .gpu::before {
-        content: "";
-        position: absolute;
-        inset: 24px;
-        border: 1px dashed rgba(255, 255, 255, 0.28);
-        border-radius: 999px;
-        animation: spin 18s linear infinite;
-      }
-
-      .gpu-center {
-        position: absolute;
-        inset: 0;
+      .big-actions {
         display: grid;
-        place-items: center;
-        text-align: center;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
       }
 
-      .gpu-center b {
-        display: block;
-        font-size: 24px;
-      }
-
-      .gpu-center span {
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .queue-card {
-        display: grid;
+      .progress-wrap {
+        display: none;
         gap: 8px;
-        min-height: 96px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+        background: var(--blue-soft);
       }
 
-      .progress {
-        height: 12px;
+      .progress-wrap.show {
+        display: grid;
+      }
+
+      .progress-wrap.live .progress-bar {
+        background:
+          linear-gradient(90deg, rgba(67, 162, 255, 0.36) 25%, transparent 25%, transparent 50%, rgba(67, 162, 255, 0.36) 50%, rgba(67, 162, 255, 0.36) 75%, transparent 75%),
+          #0b0d10;
+        background-size: 48px 48px;
+        animation: progressStripe 800ms linear infinite;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 22px;
         overflow: hidden;
         border: 1px solid var(--line);
         border-radius: 999px;
-        background: #07090b;
+        background: #0b0d10;
       }
 
-      .fill {
+      .progress-fill {
         width: 0%;
         height: 100%;
-        background: linear-gradient(90deg, var(--blue), var(--green));
-        transition: width 200ms linear;
-      }
-
-      .queue-card.queued .fill {
-        width: 8%;
         background: var(--blue);
+        transition: width 160ms ease;
       }
 
-      .adapter {
-        min-height: 104px;
-        opacity: 0.46;
+      @keyframes progressStripe {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 48px 0;
+        }
       }
 
-      .adapter.done {
-        opacity: 1;
-      }
-
-      .adapter code,
-      .sample code {
-        color: var(--green);
-      }
-
-      .sample {
-        min-height: 112px;
-        color: var(--muted);
-      }
-
-      .sample.ready {
-        border-color: rgba(118, 185, 0, 0.62);
-        color: var(--ink);
-        background: rgba(118, 185, 0, 0.1);
-      }
-
-      .packet {
-        position: absolute;
-        z-index: 4;
-        left: 20px;
-        top: 0;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: var(--gold);
-        box-shadow: 0 0 18px var(--gold);
-        opacity: 0;
-        transform: translate(0, 0);
-      }
-
-      .packet.visible {
-        opacity: 1;
-        transition: transform 620ms ease, opacity 160ms ease;
-      }
-
-      .caption {
-        position: absolute;
-        left: 16px;
-        right: 16px;
-        bottom: 16px;
+      .two {
         display: grid;
-        grid-template-columns: 130px minmax(0, 1fr);
-        gap: 12px;
-        align-items: center;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 12px;
-        background: rgba(5, 6, 7, 0.84);
-        backdrop-filter: blur(8px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
       }
 
-      .caption b {
-        color: var(--green);
-        font-size: 13px;
-        text-transform: uppercase;
-      }
-
-      .caption span {
-        color: var(--ink);
-        font-size: 16px;
-      }
-
-      .side {
-        display: grid;
-        align-content: start;
-        overflow: hidden;
-      }
-
-      .timeline {
-        display: grid;
-        gap: 10px;
-        padding: 12px;
-      }
-
-      .event {
-        display: grid;
-        grid-template-columns: 38px minmax(0, 1fr);
-        gap: 10px;
-        align-items: start;
-        border-left: 4px solid var(--line);
-        padding: 10px;
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--muted);
-      }
-
-      .event-num {
-        display: grid;
-        width: 28px;
-        height: 28px;
-        place-items: center;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        color: var(--ink);
-        font-size: 12px;
-        font-weight: 950;
-      }
-
-      .event.live {
-        border-color: var(--gold);
-        color: var(--ink);
-        background: var(--gold-soft);
-      }
-
-      .event.done {
-        border-color: var(--green);
-        color: var(--ink);
-        background: var(--green-soft);
-      }
-
-      .event strong {
-        display: block;
-        margin-bottom: 3px;
-      }
-
-      .event span {
-        font-size: 12px;
-      }
-
-      .samples {
-        grid-column: 1 / -1;
-      }
-
-      .sample-grid {
+      .three {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
+      }
+
+      .four {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .five {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .adapter {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+        background: #0c0f12;
+      }
+
+      .adapter.ready {
+        background: var(--green-soft);
+        border-color: rgba(118, 185, 0, 0.55);
+      }
+
+      .adapter h3 {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        font-size: 22px;
+      }
+
+      .status {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 3px 9px;
+        background: var(--blue-soft);
+        font-size: 12px;
+      }
+
+      .tiny {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .output {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .sample {
+        min-height: 210px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+        background: #171716;
+        color: #fffdf7;
+        white-space: pre-wrap;
+      }
+
+      .sample h3 {
+        margin-bottom: 10px;
+        color: var(--green);
+      }
+
+      .sample pre {
+        max-height: 360px;
+        overflow: auto;
+        margin: 0 14px 14px;
+        color: #dce7d7;
+        white-space: pre-wrap;
+      }
+
+      .sample details {
+        margin-top: 14px;
+      }
+
+      .answer-text {
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
+      .reward-table {
+        width: 100%;
+        margin-top: 12px;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .reward-table th,
+      .reward-table td {
+        border-top: 1px solid var(--line);
+        padding: 8px 6px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .reward-table th {
+        color: var(--green);
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+
+      .match-ok {
+        color: var(--green);
+        font-weight: 900;
+      }
+
+      .match-miss {
+        color: var(--red);
+        font-weight: 900;
+      }
+
+      details {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #0c0f12;
+      }
+
+      summary {
+        cursor: pointer;
+        padding: 12px 14px;
+        font-weight: 900;
+      }
+
+      .advanced {
+        display: grid;
+        gap: 12px;
+        padding: 0 14px 14px;
+      }
+
+      .toast {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        max-width: min(520px, calc(100vw - 36px));
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        transform: translateY(150%);
+        transition: transform 160ms ease;
+      }
+
+      .toast.show {
+        transform: translateY(0);
+      }
+
+      .toast.error {
+        background: var(--red-soft);
+      }
+
+      .summary-card {
+        display: grid;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
         padding: 12px;
+        background: #0c0f12;
       }
 
-      .sample strong {
+      .summary-card strong {
+        color: var(--green);
+      }
+
+      .demo-timeline {
+        display: grid;
+        gap: 10px;
+      }
+
+      .demo-event {
+        display: grid;
+        grid-template-columns: 26px 1fr;
+        gap: 10px;
+        align-items: start;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .demo-event b {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: rgba(118, 185, 0, 0.16);
+        color: var(--green);
+        font-size: 12px;
+      }
+
+      .demo-event.done b {
+        background: var(--green);
+        color: #071000;
+      }
+
+      .demo-event.active {
+        border-color: rgba(118, 185, 0, 0.75);
+        animation: pulse 1.1s ease-in-out infinite alternate;
+      }
+
+      .demo-event strong {
         display: block;
-        margin-bottom: 8px;
+        color: var(--text);
+        margin-bottom: 3px;
       }
 
-      @keyframes spin {
+      .compare-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .compare-box {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .compare-box h3 {
+        margin: 0 0 8px;
+      }
+
+      .muted-line {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 8px;
+      }
+
+      @keyframes pulse {
+        from {
+          box-shadow: inset 0 0 0 rgba(118, 185, 0, 0);
+        }
         to {
-          transform: rotate(360deg);
+          box-shadow: inset 0 0 0 999px rgba(118, 185, 0, 0.08);
         }
       }
 
-      @media (max-width: 1160px) {
-        main,
-        header {
+      @media (max-width: 980px) {
+        header,
+        .app-shell,
+        .steps,
+        .big-actions,
+        .two,
+        .output {
           grid-template-columns: 1fr;
         }
 
-        .flow {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .caption {
-          position: relative;
-          left: auto;
-          right: auto;
-          bottom: auto;
-          margin: 0 16px 16px;
-        }
-
-        .controls {
-          justify-items: stretch;
-        }
-      }
-
-      @media (max-width: 760px) {
-        .kpis,
-        .flow,
-        .sample-grid {
+        .compare-grid,
+        .top,
+        .three,
+        .four,
+        .five {
           grid-template-columns: 1fr;
         }
 
-        .lane {
-          min-height: auto;
-        }
-
-        .caption {
-          grid-template-columns: 1fr;
+        .sidebar {
+          position: static;
         }
       }
     </style>
@@ -633,595 +625,1343 @@
   <body>
     <header>
       <div>
-        <span class="brand">Nemotron Tinker</span>
-        <h1>Adapter Flywheel</h1>
-        <p class="subtitle">
-          A realistic single-node prototype flow: keep one base model hot, create adapters, collect data, train,
-          sample, evaluate, improve, and repeat through the same API surface.
-        </p>
-      </div>
-      <div class="controls">
-        <div class="modebar" aria-label="Demo mode">
-          <button class="secondary active" data-mode="flywheel">Flywheel</button>
-          <button class="secondary" data-mode="sft">Train Adapter</button>
-          <button class="secondary" data-mode="rl">RL + Eval</button>
+        <h1>Nemotron Tinker</h1>
+        <div class="subline">
+          <span class="pill brand">Nemotron</span>
+          <span class="pill">SDK-driven UI</span>
+          <span id="health" class="pill">Service: checking</span>
+          <span id="model" class="pill">Model: -</span>
+          <span id="workspace-pill" class="pill">Workspace: -</span>
         </div>
-        <button id="replay">Run Selected Demo</button>
+      </div>
+      <div class="top">
+        <label>Workspace<input id="workspace" value="tenant-a" /></label>
+        <button id="refresh">Refresh</button>
       </div>
     </header>
 
-    <main>
-      <section class="stage" aria-label="Nemotron Tinker animated system demo">
-        <div class="stage-head">
-          <h2>Live Training Fabric</h2>
-          <div id="clock" class="clock">00:00.0</div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div>
+          <h2>Start Here</h2>
+          <p id="mode-note" class="tiny">Follow the adapter flywheel: data, SFT, RL improvement, evaluation, inference.</p>
         </div>
-
-        <div class="kpis">
-          <div class="kpi"><b id="kpi-base">1</b><span>resident base model</span></div>
-          <div class="kpi"><b id="kpi-uploads">0</b><span id="kpi-uploads-label">datasets uploaded</span></div>
-          <div class="kpi"><b id="kpi-active">0</b><span id="kpi-active-label">active jobs</span></div>
-          <div class="kpi"><b id="kpi-ready">0</b><span id="kpi-ready-label">adapters ready</span></div>
+        <div class="mode-list">
+          <button class="mode active" data-mode="flywheel"><b>Flywheel</b><span>Data -> SFT -> RL -> eval -> inference.</span></button>
+          <button class="mode" data-mode="sft"><b>Train Adapter</b><span>Set adapter goals, train LoRAs, then sample.</span></button>
+          <button class="mode" data-mode="rl"><b>RL + Eval</b><span>Rollouts, rewards, resident RL updates, and sampling.</span></button>
         </div>
-
-        <div class="flow" id="flow">
-          <div class="lane">
-            <div class="lane-title"><span id="lane-input-title">Client Uploads</span><span id="lane-input-tag" class="tag blue">JSONL</span></div>
-            <div class="node-list">
-              <div id="upload-atlas" class="upload">
-                <div class="row"><strong>atlas_routes.jsonl</strong><span class="tag">tenant-a</span></div>
-                <div class="meta"><span>6,400 rows</span><span>rank 16</span><span>routing task</span><span>lr 5e-4</span></div>
-              </div>
-              <div id="upload-borealis" class="upload">
-                <div class="row"><strong>borealis_weather.jsonl</strong><span class="tag">tenant-b</span></div>
-                <div class="meta"><span>4,800 rows</span><span>rank 16</span><span>weather task</span><span>lr 4e-4</span></div>
-              </div>
-              <div id="upload-comet" class="upload">
-                <div class="row"><strong>comet_support.jsonl</strong><span class="tag">tenant-c</span></div>
-                <div class="meta"><span>2,200 rows</span><span>rank 8</span><span>support task</span><span>lr 6e-4</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="lane">
-            <div class="lane-title"><span id="lane-api-title">Tinker API</span><span id="lane-api-tag" class="tag green">FastAPI</span></div>
-            <div class="api-stack">
-              <div id="api-auth" class="api-step"><strong>Tenant auth</strong><span>X-Tinker-Tenant-Id scopes each run.</span></div>
-              <div id="api-validate" class="api-step"><strong>Dataset validation</strong><span>Manifest, schema, target text, and max tokens.</span></div>
-              <div id="api-tokenize" class="api-step"><strong>Tokenization</strong><span>SFT rows become shifted train labels.</span></div>
-              <div id="api-dispatch" class="api-step"><strong>Async dispatch</strong><span>Jobs enter the adapter scheduler when ready.</span></div>
-            </div>
-          </div>
-
-          <div class="lane">
-            <div class="lane-title"><span id="lane-worker-title">GPU Worker</span><span id="lane-worker-tag" class="tag green">One Base</span></div>
-            <div class="gpu">
-              <div class="gpu-center">
-                <div><b id="gpu-title">Nemotron Base</b><span id="gpu-subtitle">loaded once on GPU memory</span></div>
-              </div>
-            </div>
-            <div class="node-list">
-              <div id="job-atlas" class="queue-card queued">
-                <div class="row"><strong>job_atlas</strong><span class="tag">waiting</span></div>
-                <div class="progress"><div class="fill"></div></div>
-              </div>
-              <div id="job-borealis" class="queue-card queued">
-                <div class="row"><strong>job_borealis</strong><span class="tag">waiting</span></div>
-                <div class="progress"><div class="fill"></div></div>
-              </div>
-              <div id="job-comet" class="queue-card queued">
-                <div class="row"><strong>job_comet</strong><span class="tag">waiting</span></div>
-                <div class="progress"><div class="fill"></div></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="lane">
-            <div class="lane-title"><span id="lane-output-title">Adapter Registry</span><span id="lane-output-tag" class="tag green">LoRA</span></div>
-            <div class="node-list">
-              <div id="adapter-atlas" class="adapter">
-                <div class="row"><strong>Atlas</strong><span class="tag">not ready</span></div>
-                <div class="meta"><span><code>ATLAS</code></span><span>route planning</span></div>
-              </div>
-              <div id="adapter-borealis" class="adapter">
-                <div class="row"><strong>Borealis</strong><span class="tag">not ready</span></div>
-                <div class="meta"><span><code>BOREALIS</code></span><span>weather reports</span></div>
-              </div>
-              <div id="adapter-comet" class="adapter">
-                <div class="row"><strong>Comet</strong><span class="tag">not ready</span></div>
-                <div class="meta"><span><code>COMET</code></span><span>support replies</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div id="packet" class="packet"></div>
+        <div class="summary-card">
+          <strong>Current workspace</strong>
+          <span id="sidebar-workspace" class="tiny">tenant-a</span>
         </div>
-
-        <div class="caption">
-          <b id="caption-label">Ready</b>
-          <span id="caption-text">Replay the demo to watch late-arriving datasets become independently trainable LoRA adapters.</span>
-        </div>
-      </section>
-
-      <aside class="side">
-        <div class="side-head">
-          <h2>Run Log</h2>
-          <span class="tag green">async</span>
-        </div>
-        <div class="timeline">
-          <div id="event-1" class="event"><div class="event-num">1</div><div><strong>Atlas upload</strong><span>Dataset and LoRA config arrive first.</span></div></div>
-          <div id="event-2" class="event"><div class="event-num">2</div><div><strong>Validate and tokenize</strong><span>Rows become trainable SFT batches.</span></div></div>
-          <div id="event-3" class="event"><div class="event-num">3</div><div><strong>Atlas starts</strong><span>The base model remains resident.</span></div></div>
-          <div id="event-4" class="event"><div class="event-num">4</div><div><strong>Borealis joins</strong><span>A second tenant arrives while Atlas is running.</span></div></div>
-          <div id="event-5" class="event"><div class="event-num">5</div><div><strong>Comet joins later</strong><span>Late work is accepted without restarting the service.</span></div></div>
-          <div id="event-6" class="event"><div class="event-num">6</div><div><strong>Adapters ready</strong><span>Each LoRA can be sampled separately.</span></div></div>
+        <div class="summary-card">
+          <strong>Next action</strong>
+          <span id="next-action" class="tiny">Start with data, then run SFT.</span>
         </div>
       </aside>
 
-      <section class="samples">
-        <div class="samples-head">
-          <h2 id="samples-title">Independent Samples</h2>
-          <span class="tag green">same base, different adapters</span>
+      <main>
+      <section class="active-panel" data-panel="flywheel">
+        <div class="section-head">
+          <h2>Adapter Flywheel</h2>
+          <span class="tiny">The order of operations for Nemotron Tinker.</span>
         </div>
-        <div class="sample-grid">
-          <div id="sample-atlas" class="sample"><strong>Atlas sample</strong><span>Waiting for adapter...</span></div>
-          <div id="sample-borealis" class="sample"><strong>Borealis sample</strong><span>Waiting for adapter...</span></div>
-          <div id="sample-comet" class="sample"><strong>Comet sample</strong><span>Waiting for adapter...</span></div>
+        <div class="body">
+          <div class="steps">
+            <div class="step active"><b>1</b>Data: upload SFT rows, rollout prompts, rewards, and eval sets.</div>
+            <div class="step"><b>2</b>SFT: create LoRAs and teach each one a different target behavior.</div>
+            <div class="step"><b>3</b>RL: collect rollouts, score them, and improve the same resident adapter when using the API RL path.</div>
+            <div class="step"><b>4</b>Inference: sample, evaluate, add failures back to data, and repeat.</div>
+          </div>
+          <div class="summary-card">
+            <strong>Use case view</strong>
+            <span class="tiny">Gym-style sampling collects rollouts from the loaded adapter. Resident RL LoRA scores those rollouts and trains the same adapter on the same loaded base model.</span>
+          </div>
+          <div class="big-actions">
+            <button class="primary" data-mode-jump="sft">Go To SFT Training</button>
+            <button class="blue" data-mode-jump="rl">Go To RL + Eval</button>
+          </div>
         </div>
       </section>
-    </main>
+
+      <section class="active-panel" data-panel="flywheel">
+        <div class="section-head">
+          <h2>Guided Demo</h2>
+          <span class="tiny">One click runs the product story end to end.</span>
+        </div>
+        <div class="body">
+          <div class="summary-card">
+            <strong>Demo promise</strong>
+            <span class="tiny">Create two LoRA adapters, train distinct SFT behaviors, sample both, run one mixed resident RL job on the same prompts, sample both again, then export when ready.</span>
+          </div>
+          <div class="big-actions">
+            <button id="run-guided-demo" class="primary">Run Guided Demo</button>
+            <button id="demo-defaults" class="blue">Use Demo Defaults</button>
+            <button id="strong-rl-defaults" class="blue">Use Strong RL Test</button>
+            <button id="reset-demo-log">Reset Demo Log</button>
+          </div>
+          <div id="demo-timeline" class="demo-timeline"></div>
+          <pre id="demo-output" class="sample">Demo log appears here.</pre>
+        </div>
+      </section>
+
+      <section data-panel="sft">
+        <div class="section-head">
+          <h2>SFT Adapter Goals</h2>
+          <button id="new-workspace">New Clean Workspace</button>
+        </div>
+        <div class="body">
+          <div class="steps">
+            <div id="step-1" class="step active"><b>1</b>Pick a workspace.</div>
+            <div id="step-2" class="step"><b>2</b>Create Atlas and Borealis adapters.</div>
+            <div id="step-3" class="step"><b>3</b>Sample both adapters before or after training.</div>
+            <div id="step-4" class="step"><b>4</b>Train each adapter, then sample again to compare.</div>
+          </div>
+          <div class="summary-card">
+            <strong>Goal</strong>
+            <span class="tiny">Atlas should answer map and route prompts. Borealis should answer weather and aurora prompts. Sample before SFT to see the baseline, then train and sample again.</span>
+          </div>
+          <div class="big-actions">
+            <button id="create-run" class="primary">Create 2 LoRA Adapters</button>
+            <button id="sample-both" class="blue">Sample Both</button>
+            <button id="train-both" class="primary">Train Both Toward Goals</button>
+          </div>
+          <div id="train-progress" class="progress-wrap">
+            <div class="progress-bar"><div id="train-progress-fill" class="progress-fill"></div></div>
+            <div id="train-progress-label" class="tiny">Training: 0 / 0</div>
+          </div>
+        </div>
+      </section>
+
+      <section data-panel="sft">
+        <div class="section-head">
+          <h2>The Two Goals</h2>
+          <span class="tiny">Atlas and Borealis are trained to do different things.</span>
+        </div>
+        <div class="body">
+          <div class="two">
+            <div id="atlas-card" class="adapter">
+              <h3>Atlas <span id="atlas-status" class="status">missing</span></h3>
+              <p class="tiny" id="atlas-meta">No run yet.</p>
+              <label>Atlas prompt<textarea id="atlas-prompt">Route code: ATLAS
+Answer:</textarea></label>
+              <label>Atlas answer<textarea id="atlas-answer"> Use the atlas adapter for maps, routes, and navigation planning.</textarea></label>
+            </div>
+            <div id="borealis-card" class="adapter">
+              <h3>Borealis <span id="borealis-status" class="status">missing</span></h3>
+              <p class="tiny" id="borealis-meta">No run yet.</p>
+              <label>Borealis prompt<textarea id="borealis-prompt">Route code: BOREALIS
+Answer:</textarea></label>
+              <label>Borealis answer<textarea id="borealis-answer"> Use the borealis adapter for aurora, weather, and northern sky reports.</textarea></label>
+            </div>
+          </div>
+          <div class="three">
+            <label>Training steps<input id="steps" type="number" min="1" value="20" /></label>
+            <label>Learning rate<input id="lr" value="0.0005" /></label>
+            <label>Max train tokens<input id="max-tokens" type="number" min="8" value="64" /></label>
+          </div>
+          <div class="three">
+            <label class="check"><input id="use-chat-template" type="checkbox" checked /> Use chat template</label>
+            <label>Sample output tokens<input id="sample-tokens" type="number" min="1" value="20" /></label>
+            <label class="check"><input id="sample-first-sentence" type="checkbox" checked /> Show first answer sentence</label>
+          </div>
+        </div>
+      </section>
+
+      <section data-panel="rl">
+        <div class="section-head">
+          <h2>Resident RL Goal</h2>
+          <span class="tiny">Teach each adapter to prefer a target answer, then sample the same adapter again.</span>
+        </div>
+        <div class="body">
+          <div class="steps">
+            <div class="step active"><b>1</b>Goal: choose the exact behavior each adapter should prefer.</div>
+            <div class="step"><b>2</b>Attempt: sample both resident adapters on the same prompts used for SFT.</div>
+            <div class="step"><b>3</b>Reward: score each adapter's completion against its target text.</div>
+            <div class="step"><b>4</b>Train together: submit one mixed RL job, then sample both again.</div>
+          </div>
+          <div class="summary-card">
+            <strong>What this is showing</strong>
+            <span class="tiny">SFT teaches the first answer for each prompt. RL reuses those exact prompts and pushes each adapter toward a new preferred answer.</span>
+          </div>
+        </div>
+      </section>
+
+      <section data-panel="rl">
+        <div class="section-head">
+          <h2>Train Both Toward Goals</h2>
+          <span class="tiny">Use the same prompts as SFT, then train a new preference answer in one mixed resident RL job.</span>
+        </div>
+        <div class="body">
+          <div class="summary-card">
+            <strong>How to read this</strong>
+            <span class="tiny">The prompt is reused from SFT. Before RL should look like the SFT answer; after RL should move toward the new target answer.</span>
+          </div>
+          <div class="adapters">
+            <div class="adapter ready">
+              <h3>Atlas RL</h3>
+              <label>Run name or id<input id="resident-rl-atlas-run" value="atlas" /></label>
+              <label>New RL target answer<input id="resident-rl-atlas-contains" value="Use atlas for apples." /></label>
+              <label>Prompt reused from SFT<textarea id="resident-rl-atlas-prompt" readonly>Route code: ATLAS
+Answer:</textarea></label>
+            </div>
+            <div class="adapter ready">
+              <h3>Borealis RL</h3>
+              <label>Run name or id<input id="resident-rl-borealis-run" value="borealis" /></label>
+              <label>New RL target answer<input id="resident-rl-borealis-contains" value="Use borealis for storms." /></label>
+              <label>Prompt reused from SFT<textarea id="resident-rl-borealis-prompt" readonly>Route code: BOREALIS
+Answer:</textarea></label>
+            </div>
+          </div>
+          <div class="five">
+            <label>RL steps<input id="resident-rl-steps" type="number" min="1" value="16" /></label>
+            <label>Rollouts/prompt<input id="resident-rl-rollouts" type="number" min="1" value="2" /></label>
+            <label>Max output tokens<input id="resident-rl-tokens" type="number" min="1" value="48" /></label>
+            <label>Learning rate<input id="resident-rl-lr" value="0.00005" /></label>
+            <label>Reward mode<select id="resident-rl-reward-mode"><option value="exact">exact</option><option value="starts_with">starts with</option><option value="contains">contains</option><option value="regex">regex</option></select></label>
+          </div>
+          <div class="big-actions">
+            <button id="resident-rl-sample-both" class="blue">1. Preview Before RL (No Training)</button>
+            <button id="resident-rl-train-both" class="primary">2. Train RL + Compare Both</button>
+            <button id="resident-rl-export-both" class="blue">3. Export RL LoRAs</button>
+          </div>
+          <div id="resident-rl-progress" class="progress-wrap">
+            <div class="progress-bar"><div id="resident-rl-progress-fill" class="progress-fill"></div></div>
+            <div id="resident-rl-progress-label" class="tiny">Resident RL: 0 / 0</div>
+          </div>
+          <pre id="resident-rl-output" class="sample">Resident RL output appears here.</pre>
+        </div>
+      </section>
+
+      <section data-panel="sft">
+        <div class="section-head">
+          <h2>Results</h2>
+          <span class="tiny">Sample buttons use the correct prompt automatically.</span>
+        </div>
+        <div class="body">
+          <div class="output">
+            <div id="atlas-output" class="sample"><h3>Atlas output</h3>Not sampled yet.</div>
+            <div id="borealis-output" class="sample"><h3>Borealis output</h3>Not sampled yet.</div>
+          </div>
+          <details>
+            <summary>Advanced / raw details</summary>
+            <div class="advanced">
+              <button id="save-both">Save Both</button>
+              <button id="export-both" class="blue">Export LoRAs</button>
+              <button id="detach-both" class="warn">Detach Both</button>
+              <pre id="raw" class="sample">Raw responses show up here.</pre>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
 
     <script>
-      const $ = (id) => document.getElementById(id);
-      const adapters = ["atlas", "borealis", "comet"];
-      const timers = [];
-      let activeMode = "flywheel";
-      let startedAt = performance.now();
-      let clockTimer = null;
-
-      const scenarios = {
-        flywheel: {
-          inputTitle: "Data Flywheel",
-          inputTag: "repeat",
-          apiTitle: "SDK/API Loop",
-          apiTag: "serve-train",
-          workerTitle: "Resident Base",
-          workerTag: "hot",
-          outputTitle: "Adapter State",
-          outputTag: "improves",
-          gpuTitle: "Nemotron Base",
-          gpuSubtitle: "stays online while adapters iterate",
-          uploadsLabel: "data cycles",
-          activeLabel: "loop steps",
-          readyLabel: "improved adapters",
-          samplesTitle: "Flywheel Outputs",
-          readyCaption:
-            "The flywheel is serve, collect, train, sample, evaluate, improve, repeat while the base model stays resident.",
-          apiSteps: [
-            ["Base online", "Load Nemotron once and keep it hot."],
-            ["Adapter created", "Create a LoRA for each task, tenant, or experiment."],
-            ["Data in", "SFT rows, Gym rollouts, rewards, and eval prompts enter the loop."],
-            ["Train and sample", "Run train_steps, sample immediately, evaluate, then add better data."],
-          ],
-          events: [
-            ["Base online", "The shared model is loaded once."],
-            ["Adapter created", "A LoRA is attached for the first task."],
-            ["Data in", "Examples, rollouts, rewards, and eval prompts arrive."],
-            ["Train and sample", "The adapter updates and is tested through the same API."],
-            ["Improve data", "Failures become new examples or rewards."],
-            ["Repeat", "Another adapter joins without unloading the base model."],
-          ],
-          items: {
-            atlas: {
-              title: "cycle_01_seed_data.jsonl",
-              tenant: "tenant-a",
-              meta: ["SFT rows", "eval prompts", "rank 8", "start"],
-              adapter: "Atlas v1",
-              adapterMeta: ["CREATE", "first adapter"],
-              job: "create_adapter",
-              uploadCaption: ["Base Online", "Nemotron is loaded once. Atlas gets a LoRA instead of a whole new model."],
-              trainCaption: "Atlas trains on seed examples, then samples immediately for evaluation.",
-              sample: "Cycle 1: Atlas answers the route task, misses edge cases, and emits eval failures.",
-            },
-            borealis: {
-              title: "cycle_02_failures_rewards.jsonl",
-              tenant: "tenant-a",
-              meta: ["failures", "rewards", "Gym traces", "improve"],
-              adapter: "Atlas v2",
-              adapterMeta: ["IMPROVE", "same adapter"],
-              job: "train_improve",
-              uploadCaption: ["Improve Data", "Bad samples become better SFT rows, rewards, or verifier-labeled rollouts."],
-              trainCaption: "The same resident adapter is improved without reloading the base model.",
-              sample: "Cycle 2: Atlas handles the edge cases and produces cleaner, shorter route answers.",
-            },
-            comet: {
-              title: "cycle_03_new_task.jsonl",
-              tenant: "tenant-b",
-              meta: ["new adapter", "async", "separate data", "repeat"],
-              adapter: "Comet v1",
-              adapterMeta: ["REPEAT", "new task"],
-              job: "new_adapter",
-              uploadCaption: ["Repeat", "A second task creates its own adapter while the base remains online."],
-              trainCaption: "Comet enters the same flywheel independently: collect, train, sample, evaluate.",
-              sample: "Cycle 3: Comet becomes a separate support adapter while Atlas keeps its learned behavior.",
-            },
-          },
-        },
-        sft: {
-          inputTitle: "Client Uploads",
-          inputTag: "JSONL",
-          apiTitle: "Tinker API",
-          apiTag: "FastAPI",
-          workerTitle: "GPU Worker",
-          workerTag: "One Base",
-          outputTitle: "Adapter Registry",
-          outputTag: "LoRA",
-          gpuTitle: "Nemotron Base",
-          gpuSubtitle: "loaded once on GPU memory",
-          uploadsLabel: "datasets uploaded",
-          activeLabel: "active jobs",
-          readyLabel: "adapters ready",
-          samplesTitle: "Independent Samples",
-          readyCaption: "Replay the demo to watch late-arriving datasets become independently trainable LoRA adapters.",
-          apiSteps: [
-            ["Tenant auth", "X-Tinker-Tenant-Id scopes each run."],
-            ["Dataset validation", "Manifest, schema, target text, and max tokens."],
-            ["Tokenization", "SFT rows become shifted train labels."],
-            ["Async dispatch", "Jobs enter the adapter scheduler when ready."],
-          ],
-          events: [
-            ["Atlas upload", "Dataset and LoRA config arrive first."],
-            ["Validate and tokenize", "Rows become trainable SFT batches."],
-            ["Atlas starts", "The base model remains resident."],
-            ["Borealis joins", "A second tenant arrives while Atlas is running."],
-            ["Comet joins later", "Late work is accepted without restarting the service."],
-            ["Adapters ready", "Each LoRA can be sampled separately."],
-          ],
-          items: {
-            atlas: {
-              title: "atlas_routes.jsonl",
-              tenant: "tenant-a",
-              meta: ["6,400 rows", "rank 16", "routing task", "lr 5e-4"],
-              adapter: "Atlas",
-              adapterMeta: ["ATLAS", "route planning"],
-              job: "job_atlas",
-              uploadCaption: [
-                "Upload",
-                "Atlas arrives first with a routing dataset, tenant scope, and a LoRA rank configuration.",
-              ],
-              trainCaption: "Atlas is updating its LoRA weights while the base model stays loaded.",
-              sample: "Route code: ATLAS -> use Atlas for maps, routes, and navigation planning.",
-            },
-            borealis: {
-              title: "borealis_weather.jsonl",
-              tenant: "tenant-b",
-              meta: ["4,800 rows", "rank 16", "weather task", "lr 4e-4"],
-              adapter: "Borealis",
-              adapterMeta: ["BOREALIS", "weather reports"],
-              job: "job_borealis",
-              uploadCaption: [
-                "Late Upload",
-                "Borealis arrives while Atlas is already training. The service accepts it without reloading the base model.",
-              ],
-              trainCaption: "Borealis trains on its own examples without touching Atlas weights.",
-              sample: "Route code: BOREALIS -> use Borealis for aurora, weather, and northern sky reports.",
-            },
-            comet: {
-              title: "comet_support.jsonl",
-              tenant: "tenant-c",
-              meta: ["2,200 rows", "rank 8", "support task", "lr 6e-4"],
-              adapter: "Comet",
-              adapterMeta: ["COMET", "support replies"],
-              job: "job_comet",
-              uploadCaption: [
-                "Async Join",
-                "Comet joins later with a smaller support dataset and enters the same worker queue.",
-              ],
-              trainCaption: "Comet is trained as a late-arriving adapter on the same resident base.",
-              sample: "Route code: COMET -> use Comet for concise customer support replies.",
-            },
-          },
-        },
-        rl: {
-          inputTitle: "Policy Rollouts",
-          inputTag: "RL JSON",
-          apiTitle: "RL Loss API",
-          apiTag: "train_steps",
-          workerTitle: "Policy Worker",
-          workerTag: "LoRA RL",
-          outputTitle: "RL Adapter Registry",
-          outputTag: "rewarded",
-          gpuTitle: "Nemotron Policy",
-          gpuSubtitle: "samples, scores, then updates LoRA",
-          uploadsLabel: "rollout sets",
-          activeLabel: "RL jobs",
-          readyLabel: "RL adapters",
-          samplesTitle: "Post-RL Policy Samples",
-          readyCaption: "Run the RL demo to watch rollouts turn into advantage-weighted LoRA updates.",
-          apiSteps: [
-            ["Policy sampling", "OpenAI-compatible calls return tokens and logprobs."],
-            ["Reward scoring", "Rule or verifier rewards become scalar returns."],
-            ["Advantage build", "Rewards are centered into train weights."],
-            ["RL train_steps", "importance_sampling, ppo, cispo, or dro updates the adapter."],
-          ],
-          events: [
-            ["Concise rollouts", "The first policy collects short-answer trajectories."],
-            ["Score and convert", "Tokens, old logprobs, weights, and advantages are assembled."],
-            ["RL update starts", "Current logprobs keep gradients enabled."],
-            ["Numeric rollouts join", "A second RL adapter enters while the first is training."],
-            ["Safety rollouts join", "Late rollouts can still submit a separate adapter job."],
-            ["RL adapters ready", "Each adapter samples with its own rewarded behavior."],
-          ],
-          items: {
-            atlas: {
-              title: "concise_rollouts.jsonl",
-              tenant: "rl-team-a",
-              meta: ["32 prompts", "2 samples", "IS loss", "lr 2e-5"],
-              adapter: "RL Concise",
-              adapterMeta: ["CONCISE", "short answers"],
-              job: "job_rl_concise",
-              uploadCaption: ["Rollouts", "Concise arrives with sampled tokens, old logprobs, and verifier rewards."],
-              trainCaption: "RL Concise updates from advantage-weighted sampled tokens.",
-              sample: "Answer: adapter routing picks the right resident LoRA for each request.",
-            },
-            borealis: {
-              title: "numeric_rollouts.jsonl",
-              tenant: "rl-team-b",
-              meta: ["24 prompts", "2 samples", "PPO clip", "lr 2e-5"],
-              adapter: "RL Numeric",
-              adapterMeta: ["NUMERIC", "exact numbers"],
-              job: "job_rl_numeric",
-              uploadCaption: ["Async RL", "Numeric rollouts arrive while the concise adapter is still stepping."],
-              trainCaption: "RL Numeric trains separately from the same resident base model.",
-              sample: "Answer: batch size is 64, microbatch size is 4, and steps are 12.",
-            },
-            comet: {
-              title: "safety_rollouts.jsonl",
-              tenant: "rl-team-c",
-              meta: ["18 prompts", "4 samples", "DRO loss", "lr 1e-5"],
-              adapter: "RL Safety",
-              adapterMeta: ["SAFETY", "policy style"],
-              job: "job_rl_safety",
-              uploadCaption: ["Late RL", "A third set of scored trajectories is accepted without restarting the policy endpoint."],
-              trainCaption: "RL Safety uses its own loss inputs and optimizer steps.",
-              sample: "Answer: I can help with the safe configuration and explain the tradeoffs.",
-            },
-          },
-        },
+      const state = {
+        health: null,
+        runs: [],
+        jobs: [],
+        metrics: null,
+        toastTimer: null,
+        busy: null,
+        buttonLabels: {},
+        mode: "sft",
+        activeTrainJobId: null,
+        demoEvents: [],
+        demoOutputs: null,
       };
+      const $ = (id) => document.getElementById(id);
 
-      function delay(ms) {
-        return new Promise((resolve) => {
-          const timer = setTimeout(resolve, ms);
-          timers.push(timer);
+      class NemotronTinkerSdk {
+        constructor(root, workspaceProvider) {
+          this.root = root;
+          this.workspaceProvider = workspaceProvider;
+          this.fake = { runsByTenant: {}, jobsByTenant: {}, sequence: 0 };
+        }
+        tenant() { return this.workspaceProvider() || "tenant-a"; }
+        store() {
+          const tenant = this.tenant();
+          if (!this.fake.runsByTenant[tenant]) this.fake.runsByTenant[tenant] = [];
+          if (!this.fake.jobsByTenant[tenant]) this.fake.jobsByTenant[tenant] = [];
+          return { tenant, runs: this.fake.runsByTenant[tenant], jobs: this.fake.jobsByTenant[tenant] };
+        }
+        async pause(ms = 180) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+        async health() {
+          await this.pause(30);
+          const { runs } = this.store();
+          return { status: "ok", base_model: "NVIDIA-Nemotron-3-Nano-30B-A3B-BF16", mode: "mixed_lora_single_process", mixed_lora_backend: "grouped", model_execution: "browser_fake_demo", worker_alive: true, queue_depth: 0, num_runs: runs.length };
+        }
+        async runs() { await this.pause(30); return this.store().runs.map((run) => ({ ...run })); }
+        async jobs() { await this.pause(30); return this.store().jobs.map((job) => ({ ...job, progress: { ...(job.progress || {}) } })); }
+        async metrics() { return { started_at: new Date().toISOString(), operations: {} }; }
+        createRun(name) {
+          const { tenant, runs } = this.store();
+          let run = runs.find((item) => item.name === name && item.status !== "detached");
+          if (run) return run;
+          const id = (++this.fake.sequence).toString(16).padStart(4, "0");
+          run = { run_id: "run_demo_" + name + "_" + id, adapter_id: "adapter_demo_" + name + "_" + id, name, tenant_id: tenant, status: "ready", sequence: 0, optimizer_steps: 0, forward_backward_calls: 0, last_loss: null, last_metrics: {}, last_checkpoint_path: null, last_error: null, restored_from: null, worker_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), phase: "base" };
+          runs.push(run);
+          return run;
+        }
+        async createTrainingClient(name) { await this.pause(260); return { ...this.createRun(name) }; }
+        async sftDatum(prompt, completion, maxTokens, useChatTemplate) {
+          await this.pause(80);
+          const n = Math.min(Number(maxTokens) || 32, 24);
+          return { model_input: { tokens: Array.from({ length: n }, (_, i) => i + 1) }, loss_fn_inputs: { target_tokens: { tokens: Array.from({ length: n }, (_, i) => i + 2) }, weights: Array.from({ length: n }, (_, i) => (i < 8 ? 0 : 1)), demo_prompt: prompt, demo_completion: completion, use_chat_template: useChatTemplate } };
+        }
+        makeJob(kind, runIds, steps, lossFn, examplesByRun = null) {
+          const { tenant, jobs } = this.store();
+          const id = (++this.fake.sequence).toString(16).padStart(4, "0");
+          const examples = examplesByRun || Object.fromEntries(runIds.map((runId) => [runId, 1]));
+          const job = { job_id: "job_demo_" + id, kind, status: "running", tenant_id: tenant, sequence: 0, run_ids: runIds, progress: { step: 0, total_steps: steps, request_ref: { kind: "browser-demo", num_runs: runIds.length, examples_by_run: examples, total_examples: Object.values(examples).reduce((a, b) => a + b, 0), batch_size: 1, microbatch_size: lossFn === "cross_entropy" ? null : 1, loss_fn: lossFn }, first_losses: {}, last_losses: {} }, result: null, error: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+          jobs.unshift(job);
+          return job;
+        }
+        async trainSteps(batches, steps, learningRate, saveNames = {}, lossFn = "cross_entropy") {
+          const runIds = Object.keys(batches);
+          const examplesByRun = Object.fromEntries(runIds.map((runId) => [runId, batches[runId].length]));
+          const job = this.makeJob("train_steps", runIds, Number(steps), lossFn, examplesByRun);
+          this.animateJob(job, learningRate, saveNames, lossFn);
+          return { job: { ...job, progress: { ...job.progress } } };
+        }
+        animateJob(job, learningRate, saveNames, lossFn) {
+          const { runs } = this.store();
+          const total = Number(job.progress.total_steps) || 1;
+          const timer = setInterval(() => {
+            job.progress.step = Math.min(total, job.progress.step + 1);
+            job.sequence += 1;
+            job.updated_at = new Date().toISOString();
+            job.run_ids.forEach((runId) => {
+              const run = runs.find((item) => item.run_id === runId);
+              if (!run) return;
+              const firstLoss = lossFn === "cross_entropy" ? 54.0 : 6.2;
+              const lastLoss = lossFn === "cross_entropy" ? Math.max(0.025, firstLoss / Math.pow(job.progress.step + 4, 2)) : Math.max(0.12, firstLoss - job.progress.step * 0.22);
+              job.progress.first_losses[runId] = job.progress.first_losses[runId] ?? firstLoss;
+              job.progress.last_losses[runId] = lastLoss;
+              run.status = "ready";
+              run.sequence += 1;
+              run.optimizer_steps += 1;
+              run.forward_backward_calls += 1;
+              run.last_loss = lastLoss;
+              run.last_metrics = { loss: lastLoss, "loss:sum": lastLoss, "loss:mean": lastLoss / 14, num_label_tokens: lossFn === "cross_entropy" ? 16 : 22, loss_fn: lossFn, loss_weight_mean: 1 };
+              run.updated_at = new Date().toISOString();
+              if (lossFn === "cross_entropy") run.phase = "sft";
+              if (lossFn !== "cross_entropy") run.phase = "rl";
+              if (saveNames[runId]) run.last_checkpoint_path = "/browser-demo/checkpoints/" + saveNames[runId];
+            });
+            if (job.progress.step >= total) { clearInterval(timer); job.status = "succeeded"; job.result = { first_losses: job.progress.first_losses, last_losses: job.progress.last_losses, saved_paths: saveNames }; }
+          }, lossFn === "cross_entropy" ? 260 : 220);
+        }
+        async job(jobId) {
+          const job = this.store().jobs.find((item) => item.job_id === jobId);
+          if (!job) throw new Error("404 job " + jobId + " not found");
+          return { ...job, progress: { ...job.progress } };
+        }
+        findRun(runId) {
+          const run = this.store().runs.find((item) => item.run_id === runId || item.name === runId || item.adapter_id === runId);
+          if (!run) throw new Error("404 run " + runId + " not found");
+          return run;
+        }
+        sampleText(run, prompt) {
+          const name = (run.name || "adapter").toLowerCase();
+          if (run.phase === "rl") {
+            if (name === "atlas") return "Use atlas for apples.";
+            if (name === "borealis") return "Use borealis for storms.";
+            return "Use " + name + " for the rewarded target.";
+          }
+          if (run.phase === "sft") {
+            if (name === "atlas") return "Use the atlas adapter for maps, routes, and navigation planning.";
+            if (name === "borealis") return "Use the borealis adapter for aurora, weather, and northern sky reports.";
+            return "Use the " + name + " adapter for its trained task.";
+          }
+          if (name === "atlas") return "The base model gives a generic routing answer before Atlas is trained.";
+          if (name === "borealis") return "The base model gives a generic weather answer before Borealis is trained.";
+          return "The base model has not learned this adapter behavior yet.";
+        }
+        async sample(runId, prompt, maxNewTokens, useChatTemplate) {
+          await this.pause(420);
+          const run = this.findRun(runId);
+          const completion = this.sampleText(run, prompt);
+          const text = prompt + (prompt.endsWith("\n") ? "" : " ") + completion;
+          return { run: { ...run }, output: { tokens: Array.from({ length: Math.min(Number(maxNewTokens) || 24, 64) }, (_, i) => 1000 + i), text, prompt_token_count: Math.max(1, prompt.split(/\s+/).length), generated_logprobs: Array.from({ length: Math.min(Number(maxNewTokens) || 24, 24) }, (_, i) => -0.08 - i / 100) } };
+        }
+        async openAiResponse(model, input, maxOutputTokens) {
+          const result = await this.sample(model, input, maxOutputTokens, false);
+          return { id: "resp_demo_" + Date.now(), created_at: Date.now() / 1000, model, object: "response", status: "completed", output: [{ role: "assistant", type: "message", status: "completed", content: [{ type: "output_text", text: responseText(result) }] }], tinker_rl: result.output };
+        }
+        async residentRl(runId, payload) {
+          const run = this.findRun(runId);
+          return this.residentRlMixed({ ...payload, runs: [{ run_id: run.run_id, prompts: payload.prompts, reward_mode: payload.reward_mode, reward_contains: payload.reward_contains, save_name: payload.save_name }] });
+        }
+        rolloutFor(run, prompt, target, matched = false) {
+          const completion = matched ? target : this.sampleText(run, prompt);
+          return { prompt, target_text: target, reward_mode: "starts_with", text: prompt + " " + completion, completion_text: completion, reward: matched ? 1 : -0.5, matched, tokens: [1, 2, 3, 4], prompt_token_count: 2, generated_logprobs: [-0.7, -0.4], advantage: matched ? 1 : -0.5 };
+        }
+        async residentRlMixed(payload) {
+          const runIds = payload.runs.map((item) => item.run_id);
+          const examplesByRun = Object.fromEntries(runIds.map((runId) => [runId, Number(payload.rollouts_per_prompt || 1) + 1]));
+          await this.pause(900);
+          const rolloutsByRun = {};
+          const rewardSummaries = {};
+          payload.runs.forEach((item) => {
+            const run = this.findRun(item.run_id);
+            const prompt = (item.prompts && item.prompts[0]) || "Route code:\nAnswer:";
+            const target = item.reward_contains || "Use " + run.name + " for the rewarded target.";
+            const rows = [this.rolloutFor(run, prompt, target, false)];
+            rolloutsByRun[run.run_id] = rows;
+            rewardSummaries[run.run_id] = { count: rows.length, mean: -0.5, min: -0.5, max: -0.5, baseline: 0, target_anchor_count: 1 };
+          });
+          const saveNames = Object.fromEntries(payload.runs.map((item) => [item.run_id, item.save_name]).filter((item) => item[1]));
+          const job = this.makeJob("train_steps", runIds, Number(payload.steps) || 8, payload.loss_fn || "cispo", examplesByRun);
+          this.animateJob(job, payload.learning_rate || 0.00005, saveNames, payload.loss_fn || "cispo");
+          return { runs: Object.fromEntries(runIds.map((runId) => [runId, { ...this.findRun(runId) }])), train_job: { ...job, progress: { ...job.progress } }, train_response: null, rollout_count: Object.values(rolloutsByRun).reduce((sum, rows) => sum + rows.length, 0), reward_summaries: rewardSummaries, rollouts_by_run: rolloutsByRun };
+        }
+        async save(runId, name) { await this.pause(180); const run = this.findRun(runId); run.last_checkpoint_path = "/browser-demo/checkpoints/" + name; return { path: run.last_checkpoint_path }; }
+        async export(runId, name) { await this.pause(180); return new Blob(["Nemotron Tinker demo export for " + runId + ": " + name + "\n"], { type: "application/zip" }); }
+        async detach(runId) { const run = this.findRun(runId); run.status = "detached"; return { adapter_id: run.adapter_id, remaining_adapters: this.store().runs.filter((item) => item.status !== "detached").length }; }
+      }
+
+      function apiRoot() {
+        return "browser-demo://standalone";
+      }
+
+      function workspace() {
+        return $("workspace").value.trim();
+      }
+
+      const sdk = new NemotronTinkerSdk(apiRoot, workspace);
+
+      function toast(message, error = false) {
+        const node = $("toast");
+        node.textContent = message;
+        node.className = `toast show${error ? " error" : ""}`;
+        clearTimeout(state.toastTimer);
+        state.toastTimer = setTimeout(() => (node.className = "toast"), 3600);
+      }
+
+      function raw(payload) {
+        $("raw").textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function responseText(payload) {
+        if (payload && typeof payload.output_text === "string") return payload.output_text;
+        const content = payload?.output?.[0]?.content || [];
+        const text = content.find((item) => item.type === "output_text" && typeof item.text === "string")?.text;
+        if (typeof text === "string") return text;
+        return "";
+      }
+
+      function renderOutputPanel(elementId, title, text, payload = null) {
+        const rawBlock = payload
+          ? [
+              "<details>",
+              "<summary>Show raw response</summary>",
+              `<pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`,
+              "</details>",
+            ].join("")
+          : "";
+        $(elementId).innerHTML = [
+          title ? `<h3>${escapeHtml(title)}</h3>` : "",
+          `<div class="answer-text">${escapeHtml(text || "(empty output)")}</div>`,
+          rawBlock,
+        ].join("");
+      }
+
+      function appendDemoEvent(title, detail, status = "active") {
+        state.demoEvents.push({ title, detail, status, at: new Date().toLocaleTimeString() });
+        renderDemoTimeline();
+      }
+
+      function updateLastDemoEvent(status, detail = null) {
+        const last = state.demoEvents[state.demoEvents.length - 1];
+        if (!last) return;
+        last.status = status;
+        if (detail) last.detail = detail;
+        renderDemoTimeline();
+      }
+
+      function renderDemoTimeline() {
+        const events = state.demoEvents.length
+          ? state.demoEvents
+          : [
+              {
+                title: "Ready",
+                detail: "Click Run Guided Demo to create adapters, train SFT, sample, run RL, and compare outputs.",
+                status: "active",
+                at: "-",
+              },
+            ];
+        $("demo-timeline").innerHTML = events
+          .map((event, index) => {
+            const statusClass = event.status === "done" ? "done" : event.status === "active" ? "active" : "";
+            return [
+              `<div class="demo-event ${statusClass}">`,
+              `<b>${index + 1}</b>`,
+              "<div>",
+              `<strong>${escapeHtml(event.title)}</strong>`,
+              `<span class="tiny">${escapeHtml(event.detail)}</span>`,
+              `<div class="muted-line">${escapeHtml(event.at)} / ${escapeHtml(event.status)}</div>`,
+              "</div>",
+              "</div>",
+            ].join("");
+          })
+          .join("");
+      }
+
+      function renderDemoComparison(outputs) {
+        if (!outputs) {
+          $("demo-output").textContent = "Demo log appears here.";
+          return;
+        }
+        $("demo-output").innerHTML = [
+          "<h3>Demo comparison</h3>",
+          '<div class="compare-grid">',
+          '<div class="compare-box">',
+          "<h3>After SFT</h3>",
+          `<div class="answer-text"><b>Atlas</b><br>${escapeHtml(outputs.sft?.atlas || "(empty output)")}</div>`,
+          `<div class="answer-text"><b>Borealis</b><br>${escapeHtml(outputs.sft?.borealis || "(empty output)")}</div>`,
+          "</div>",
+          '<div class="compare-box">',
+          "<h3>After RL</h3>",
+          `<div class="answer-text"><b>Atlas</b><br>${escapeHtml(outputs.rl?.atlas || "(empty output)")}</div>`,
+          `<div class="answer-text"><b>Borealis</b><br>${escapeHtml(outputs.rl?.borealis || "(empty output)")}</div>`,
+          "</div>",
+          "</div>",
+          "<details>",
+          "<summary>Show raw demo payloads</summary>",
+          `<pre>${escapeHtml(JSON.stringify(outputs.raw || {}, null, 2))}</pre>`,
+          "</details>",
+        ].join("");
+      }
+
+      function applyDemoDefaults() {
+        $("steps").value = "20";
+        $("lr").value = "0.0005";
+        $("max-tokens").value = "96";
+        $("sample-tokens").value = "40";
+        $("sample-first-sentence").checked = true;
+        $("use-chat-template").checked = true;
+        $("resident-rl-steps").value = "16";
+        $("resident-rl-rollouts").value = "2";
+        $("resident-rl-tokens").value = "48";
+        $("resident-rl-lr").value = "0.00005";
+        $("resident-rl-reward-mode").value = "starts_with";
+        $("atlas-answer").value = " Use the atlas adapter for maps, routes, and navigation planning.";
+        $("borealis-answer").value = " Use the borealis adapter for aurora, weather, and northern sky reports.";
+        $("resident-rl-atlas-contains").value = "Use atlas for apples.";
+        $("resident-rl-borealis-contains").value = "Use borealis for storms.";
+        syncRlPromptsFromSft();
+        toast("Demo defaults applied.");
+      }
+
+      function applyStrongRlDefaults() {
+        applyDemoDefaults();
+        $("resident-rl-steps").value = "64";
+        $("resident-rl-rollouts").value = "4";
+        $("resident-rl-tokens").value = "64";
+        $("resident-rl-lr").value = "0.0001";
+        $("resident-rl-reward-mode").value = "starts_with";
+        $("sample-tokens").value = "64";
+        toast("Stronger RL test settings applied.");
+      }
+
+      function formatReward(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number.toFixed(2) : String(value);
+      }
+
+      function rolloutRows(payload, runLabels = {}) {
+        const rows = [];
+        Object.entries(payload?.rollouts_by_run || {}).forEach(([runId, rollouts]) => {
+          (rollouts || []).forEach((rollout, index) => {
+            rows.push({ runId, index, label: runLabels[runId] || runId, rollout });
+          });
         });
+        return rows;
       }
 
-      function setCaption(label, text) {
-        $("caption-label").textContent = label;
-        $("caption-text").textContent = text;
+      function renderRewardReport(payload, runLabels = {}, before = null, after = null) {
+        const rows = rolloutRows(payload, runLabels);
+        const beforeBlock = before
+          ? [
+              "<h3>Before RL</h3>",
+              `<div class="answer-text">Atlas: ${escapeHtml(before.atlas || "(empty output)")}</div>`,
+              `<div class="answer-text">Borealis: ${escapeHtml(before.borealis || "(empty output)")}</div>`,
+            ].join("")
+          : "";
+        const afterBlock = after
+          ? [
+              "<h3>After RL</h3>",
+              `<div class="answer-text">Atlas: ${escapeHtml(after.atlas || "(empty output)")}</div>`,
+              `<div class="answer-text">Borealis: ${escapeHtml(after.borealis || "(empty output)")}</div>`,
+            ].join("")
+          : "";
+        const table = rows.length
+          ? [
+              '<table class="reward-table">',
+              "<thead><tr><th>Adapter</th><th>Reward</th><th>Match</th><th>Target</th><th>Completion</th></tr></thead>",
+              "<tbody>",
+              rows
+                .map(({ label, rollout }) => {
+                  const matched = rollout.matched ? "matched" : "missed";
+                  const matchClass = rollout.matched ? "match-ok" : "match-miss";
+                  return [
+                    "<tr>",
+                    `<td>${escapeHtml(label)}</td>`,
+                    `<td>${escapeHtml(formatReward(rollout.reward))}</td>`,
+                    `<td class="${matchClass}">${matched}</td>`,
+                    `<td>${escapeHtml(rollout.target_text || "")}</td>`,
+                    `<td>${escapeHtml(rollout.completion_text || "")}</td>`,
+                    "</tr>",
+                  ].join("");
+                })
+                .join(""),
+              "</tbody></table>",
+            ].join("")
+          : '<div class="answer-text">No rollouts returned.</div>';
+        const rawBlock = [
+          "<details>",
+          "<summary>Show raw response</summary>",
+          `<pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`,
+          "</details>",
+        ].join("");
+        $("resident-rl-output").innerHTML = [
+          "<h3>RL rewards</h3>",
+          beforeBlock,
+          table,
+          afterBlock,
+          rawBlock,
+        ].join("");
       }
 
-      function eventState(id, state) {
-        $(id).className = `event ${state}`;
-      }
-
-      function apiState(id, state) {
-        $(id).className = `api-step ${state}`;
-      }
-
-      function kpi(id, value) {
-        $(id).textContent = value;
-      }
-
-      function setMeta(node, values) {
-        node.querySelector(".meta").innerHTML = values.map((value) => `<span>${value}</span>`).join("");
-      }
-
-      function applyScenario() {
-        const scenario = scenarios[activeMode];
-        $("lane-input-title").textContent = scenario.inputTitle;
-        $("lane-input-tag").textContent = scenario.inputTag;
-        $("lane-api-title").textContent = scenario.apiTitle;
-        $("lane-api-tag").textContent = scenario.apiTag;
-        $("lane-worker-title").textContent = scenario.workerTitle;
-        $("lane-worker-tag").textContent = scenario.workerTag;
-        $("lane-output-title").textContent = scenario.outputTitle;
-        $("lane-output-tag").textContent = scenario.outputTag;
-        $("gpu-title").textContent = scenario.gpuTitle;
-        $("gpu-subtitle").textContent = scenario.gpuSubtitle;
-        $("kpi-uploads-label").textContent = scenario.uploadsLabel;
-        $("kpi-active-label").textContent = scenario.activeLabel;
-        $("kpi-ready-label").textContent = scenario.readyLabel;
-        $("samples-title").textContent = scenario.samplesTitle;
-
-        scenario.apiSteps.forEach(([title, body], index) => {
-          const node = $(["api-auth", "api-validate", "api-tokenize", "api-dispatch"][index]);
-          node.querySelector("strong").textContent = title;
-          node.querySelector("span").textContent = body;
+      function setMode(mode) {
+        state.mode = mode;
+        document.querySelectorAll("[data-mode]").forEach((button) => {
+          button.classList.toggle("active", button.dataset.mode === mode);
         });
-
-        scenario.events.forEach(([title, body], index) => {
-          const node = $(`event-${index + 1}`);
-          node.querySelector("strong").textContent = title;
-          node.querySelector("span").textContent = body;
+        document.querySelectorAll("[data-panel]").forEach((panel) => {
+          panel.classList.toggle("active-panel", panel.dataset.panel === mode);
         });
-
-        adapters.forEach((name) => {
-          const item = scenario.items[name];
-          const upload = $(`upload-${name}`);
-          upload.querySelector("strong").textContent = item.title;
-          upload.querySelector(".tag").textContent = item.tenant;
-          setMeta(upload, item.meta);
-
-          const job = $(`job-${name}`);
-          job.querySelector("strong").textContent = item.job;
-
-          const adapter = $(`adapter-${name}`);
-          adapter.querySelector("strong").textContent = item.adapter;
-          setMeta(adapter, [`<code>${item.adapterMeta[0]}</code>`, item.adapterMeta[1]]);
-
-          const sample = $(`sample-${name}`);
-          sample.querySelector("strong").textContent = `${item.adapter} output`;
-        });
+        const notes = {
+          flywheel: "Follow the adapter flywheel: data, SFT, RL improvement, evaluation, inference.",
+          sft: "SFT teaches each LoRA a target answer, then samples the same adapter to check the behavior.",
+          rl: "Resident RL teaches a target behavior by sampling attempts, rewarding matches, and updating the same LoRA.",
+        };
+        $("mode-note").textContent = notes[mode];
+        $("next-action").textContent =
+          mode === "flywheel"
+            ? "Start with data, then run SFT."
+            : mode === "sft"
+            ? "Create two LoRA adapters, train toward their goals, then sample."
+            : "Sample attempts, train toward the goal, then sample again.";
+        render();
       }
 
-      function reset() {
-        timers.splice(0).forEach(clearTimeout);
-        if (clockTimer) clearInterval(clockTimer);
-        applyScenario();
-        startedAt = performance.now();
-        $("clock").textContent = "00:00.0";
-        clockTimer = setInterval(() => {
-          const elapsed = (performance.now() - startedAt) / 1000;
-          $("clock").textContent = `00:${elapsed.toFixed(1).padStart(4, "0")}`;
-        }, 100);
-
-        adapters.forEach((name) => {
-          const upload = $(`upload-${name}`);
-          upload.className = "upload";
-          const job = $(`job-${name}`);
-          job.className = "queue-card queued";
-          job.querySelector(".tag").textContent = "waiting";
-          job.querySelector(".fill").style.width = "0%";
-          const adapter = $(`adapter-${name}`);
-          adapter.className = "adapter";
-          adapter.querySelector(".tag").textContent = "not ready";
-          const sample = $(`sample-${name}`);
-          sample.className = "sample";
-          sample.querySelector("span").textContent = "Waiting for adapter...";
-        });
-
-        ["api-auth", "api-validate", "api-tokenize", "api-dispatch"].forEach((id) => apiState(id, ""));
-        for (let index = 1; index <= 6; index++) eventState(`event-${index}`, "");
-        ["kpi-uploads", "kpi-active", "kpi-ready"].forEach((id) => kpi(id, "0"));
-        $("packet").className = "packet";
-        $("packet").style.transform = "translate(0, 0)";
-        setCaption("Ready", scenarios[activeMode].readyCaption);
+      function nextPaint() {
+        return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       }
 
-      function centerOf(id) {
-        const flow = $("flow").getBoundingClientRect();
-        const box = $(id).getBoundingClientRect();
+      function setTrainProgress(step, total, status = "running", detail = "") {
+        const safeTotal = Math.max(Number(total) || 0, 1);
+        const safeStep = Math.max(0, Math.min(Number(step) || 0, safeTotal));
+        const isLive = !["succeeded", "failed", "canceled"].includes(status);
+        $("train-progress").className = `progress-wrap show${isLive ? " live" : ""}`;
+        $("train-progress-fill").style.width = `${Math.round((safeStep / safeTotal) * 100)}%`;
+        const suffix = detail ? ` - ${detail}` : "";
+        $("train-progress-label").textContent = `Training: ${safeStep} / ${total || "?"} (${status})${suffix}`;
+      }
+
+      function hideTrainProgress() {
+        $("train-progress").className = "progress-wrap";
+        $("train-progress-fill").style.width = "0%";
+        $("train-progress-label").textContent = "Training: 0 / 0";
+      }
+
+      function setResidentRlProgress(step, total, status = "running", detail = "") {
+        const safeTotal = Math.max(Number(total) || 0, 1);
+        const safeStep = Math.max(0, Math.min(Number(step) || 0, safeTotal));
+        const isLive = !["succeeded", "failed", "canceled"].includes(status);
+        $("resident-rl-progress").className = `progress-wrap show${isLive ? " live" : ""}`;
+        $("resident-rl-progress-fill").style.width = `${Math.round((safeStep / safeTotal) * 100)}%`;
+        const suffix = detail ? ` - ${detail}` : "";
+        $("resident-rl-progress-label").textContent = `Resident RL: ${safeStep} / ${total || "?"} (${status})${suffix}`;
+      }
+
+      function setResidentRlPhase(status, detail = "") {
+        $("resident-rl-progress").className = "progress-wrap show live";
+        $("resident-rl-progress-fill").style.width = "100%";
+        $("resident-rl-progress-label").textContent = `Resident RL: ${status}${detail ? ` - ${detail}` : ""}`;
+      }
+
+      function hideResidentRlProgress() {
+        $("resident-rl-progress").className = "progress-wrap";
+        $("resident-rl-progress-fill").style.width = "0%";
+        $("resident-rl-progress-label").textContent = "Resident RL: 0 / 0";
+      }
+
+      function runByName(name) {
+        return state.runs.find((run) => (run.name || "").toLowerCase() === name && run.status !== "detached");
+      }
+
+      function atlas() {
+        return runByName("atlas");
+      }
+
+      function borealis() {
+        return runByName("borealis");
+      }
+
+      function setStep(id, done, active) {
+        $(id).className = `step${done ? " done" : ""}${active ? " active" : ""}`;
+      }
+
+      function setBusy(name, label, buttonId, stepId, outputId) {
+        state.busy = { name, label, buttonId, stepId };
+        if (buttonId) {
+          state.buttonLabels[buttonId] = $(buttonId).textContent;
+          $(buttonId).textContent = label;
+        }
+        if (stepId) $(stepId).className = "step busy";
+        if (outputId) {
+          $(outputId).innerHTML = `<h3>${outputId.startsWith("atlas") ? "Atlas" : "Borealis"} output</h3>${label}`;
+        }
+        render();
+      }
+
+      function clearBusy() {
+        const busy = state.busy;
+        if (busy && busy.buttonId && state.buttonLabels[busy.buttonId]) {
+          $(busy.buttonId).textContent = state.buttonLabels[busy.buttonId];
+        }
+        state.busy = null;
+        render();
+      }
+
+      function renderRun(name, run) {
+        const card = $(`${name}-card`);
+        const status = $(`${name}-status`);
+        const meta = $(`${name}-meta`);
+        if (!run) {
+          card.className = "adapter";
+          status.textContent = "missing";
+          meta.textContent = "No run yet.";
+          return;
+        }
+        card.className = "adapter ready";
+        status.textContent = run.optimizer_steps > 0 ? `trained ${run.optimizer_steps}` : run.status;
+        meta.textContent = `${run.run_id} / loss ${run.last_loss == null ? "-" : Number(run.last_loss).toFixed(4)}`;
+      }
+
+      function render() {
+        const a = atlas();
+        const b = borealis();
+        const hasWorkspace = Boolean(workspace());
+        const hasBoth = Boolean(a && b);
+        const trainedBoth = Boolean(a && b && a.optimizer_steps > 0 && b.optimizer_steps > 0);
+
+        $("health").textContent = `Service: ${state.health ? state.health.status : "unknown"}`;
+        $("model").textContent = `Model: ${state.health ? String(state.health.base_model).split("/").pop() : "-"}`;
+        $("workspace-pill").textContent = `Workspace: ${workspace() || "type one"}`;
+        $("sidebar-workspace").textContent = workspace() || "type one";
+        renderRun("atlas", a);
+        renderRun("borealis", b);
+
+        setStep("step-1", hasWorkspace, !hasWorkspace);
+        setStep("step-2", hasBoth, hasWorkspace && !hasBoth);
+        setStep("step-3", hasBoth, hasBoth);
+        setStep("step-4", trainedBoth, hasBoth && !trainedBoth);
+        if (state.busy && state.busy.stepId) $(state.busy.stepId).className = "step busy";
+
+        const disabled = Boolean(state.busy);
+        $("refresh").disabled = disabled;
+        $("new-workspace").disabled = disabled;
+        $("create-run").disabled = disabled || !hasWorkspace;
+        $("train-both").disabled = disabled || !hasBoth;
+        $("sample-both").disabled = disabled || !hasBoth;
+        $("save-both").disabled = disabled || !hasBoth;
+        $("export-both").disabled = disabled || !hasBoth;
+        $("detach-both").disabled = disabled || !hasBoth;
+        $("resident-rl-train-both").disabled = disabled || !hasBoth;
+        $("resident-rl-sample-both").disabled = disabled || !hasBoth;
+        $("resident-rl-export-both").disabled = disabled || !hasBoth;
+        $("run-guided-demo").disabled = disabled || !hasWorkspace;
+        $("demo-defaults").disabled = disabled;
+        $("strong-rl-defaults").disabled = disabled;
+        $("reset-demo-log").disabled = disabled;
+      }
+
+      async function refresh() {
+        if (state.busy) return;
+        state.health = await sdk.health();
+        state.runs = await sdk.runs();
+        state.jobs = await sdk.jobs();
+        state.metrics = await sdk.metrics();
+        render();
+      }
+
+      function resolveRun(value) {
+        const needle = value.trim();
+        const run = state.runs.find((item) => item.run_id === needle || item.adapter_id === needle || item.name === needle);
+        if (!run) throw new Error(`No resident run found for ${needle}`);
+        return run;
+      }
+
+      function versionStamp() {
+        return new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+      }
+
+      function syncRlPromptsFromSft() {
+        $("resident-rl-atlas-prompt").value = $("atlas-prompt").value;
+        $("resident-rl-borealis-prompt").value = $("borealis-prompt").value;
+      }
+
+      async function sampleRlPair(atlasRun, borealisRun) {
+        syncRlPromptsFromSft();
+        const atlasPrompt = $("resident-rl-atlas-prompt").value.trim();
+        const borealisPrompt = $("resident-rl-borealis-prompt").value.trim();
+        const [atlasResult, borealisResult] = await Promise.all([
+          sdk.sample(atlasRun.run_id, atlasPrompt, Number($("resident-rl-tokens").value), false),
+          sdk.sample(borealisRun.run_id, borealisPrompt, Number($("resident-rl-tokens").value), false),
+        ]);
         return {
-          x: box.left - flow.left + box.width / 2,
-          y: box.top - flow.top + box.height / 2,
+          atlas: visibleText(atlasResult, atlasPrompt),
+          borealis: visibleText(borealisResult, borealisPrompt),
+          raw: { atlas: atlasResult, borealis: borealisResult },
         };
       }
 
-      async function packet(from, to) {
-        const dot = $("packet");
-        const a = centerOf(from);
-        const b = centerOf(to);
-        dot.style.transition = "none";
-        dot.style.transform = `translate(${a.x}px, ${a.y}px)`;
-        dot.className = "packet visible";
-        await delay(30);
-        dot.style.transition = "transform 620ms ease, opacity 160ms ease";
-        dot.style.transform = `translate(${b.x}px, ${b.y}px)`;
-        await delay(650);
-        dot.className = "packet";
-      }
-
-      async function upload(name, eventId, uploadCount, caption) {
-        setCaption(caption[0], caption[1]);
-        eventState(eventId, "live");
-        const node = $(`upload-${name}`);
-        node.classList.add("visible", "live");
-        kpi("kpi-uploads", String(uploadCount));
-        await packet(`upload-${name}`, "api-auth");
-        node.classList.remove("live");
-        node.classList.add("done");
-      }
-
-      async function apiPass() {
-        for (const id of ["api-auth", "api-validate", "api-tokenize", "api-dispatch"]) {
-          apiState(id, "live");
-          await delay(220);
-          apiState(id, "done");
-        }
-      }
-
-      async function train(name, eventId, duration, readyCount, sampleText) {
-        const scenario = scenarios[activeMode];
-        const item = scenario.items[name];
-        eventState(eventId, "live");
-        await packet("api-dispatch", `job-${name}`);
-        const job = $(`job-${name}`);
-        const adapter = $(`adapter-${name}`);
-        job.className = "queue-card live";
-        job.querySelector(".tag").textContent = "training";
-        kpi("kpi-active", String(Number($("kpi-active").textContent) + 1));
-        setCaption("Training", item.trainCaption);
-        for (let pct = 0; pct <= 100; pct += 5) {
-          job.querySelector(".fill").style.width = `${pct}%`;
-          await delay(duration / 20);
-        }
-        job.className = "queue-card done";
-        job.querySelector(".tag").textContent = "complete";
-        adapter.className = "adapter done";
-        adapter.querySelector(".tag").textContent = "ready";
-        kpi("kpi-active", String(Math.max(0, Number($("kpi-active").textContent) - 1)));
-        kpi("kpi-ready", String(readyCount));
-        await packet(`job-${name}`, `adapter-${name}`);
-        const sample = $(`sample-${name}`);
-        sample.className = "sample ready";
-        sample.querySelector("span").textContent = sampleText;
-      }
-
-      async function run() {
-        reset();
-        const scenario = scenarios[activeMode];
-
-        await upload("atlas", "event-1", 1, [
-          scenario.items.atlas.uploadCaption[0],
-          scenario.items.atlas.uploadCaption[1],
-        ]);
-        eventState("event-1", "done");
-        eventState("event-2", "live");
-        setCaption("API", scenario.apiSteps.map((step) => step[0]).join(" -> "));
-        await apiPass();
-        eventState("event-2", "done");
-        const atlas = train("atlas", "event-3", 3200, 1, scenario.items.atlas.sample);
-
-        await delay(760);
-        await upload("borealis", "event-4", 2, [
-          scenario.items.borealis.uploadCaption[0],
-          scenario.items.borealis.uploadCaption[1],
-        ]);
-        await apiPass();
-        const borealis = train("borealis", "event-4", 3800, 2, scenario.items.borealis.sample);
-
-        await delay(1220);
-        await upload("comet", "event-5", 3, [
-          scenario.items.comet.uploadCaption[0],
-          scenario.items.comet.uploadCaption[1],
-        ]);
-        await apiPass();
-        const comet = train("comet", "event-5", 2500, 3, scenario.items.comet.sample);
-
-        await Promise.all([atlas, borealis, comet]);
-        eventState("event-3", "done");
-        eventState("event-4", "done");
-        eventState("event-5", "done");
-        eventState("event-6", "live");
-        setCaption("Ready", scenario.readyCaption);
-        await delay(900);
-        eventState("event-6", "done");
-        clearInterval(clockTimer);
-      }
-
-      document.querySelectorAll("[data-mode]").forEach((button) => {
-        button.addEventListener("click", () => {
-          activeMode = button.dataset.mode;
-          document.querySelectorAll("[data-mode]").forEach((node) => node.classList.remove("active"));
-          button.classList.add("active");
-          run();
+      async function trainResidentRlRun({ runValue, prompts, rewardContains, outputLabel, progressOffset = 0, progressTotal = null }) {
+        const run = resolveRun(runValue);
+        const totalSteps = Number($("resident-rl-steps").value);
+        const displayTotal = progressTotal || totalSteps;
+        setResidentRlProgress(progressOffset, displayTotal, "collecting", `sampling ${outputLabel} rollouts`);
+        await nextPaint();
+        const response = await sdk.residentRl(run.run_id, {
+          prompts,
+          reward_mode: "contains",
+          reward_contains: rewardContains,
+          reward_baseline: 0.0,
+          steps: totalSteps,
+          rollouts_per_prompt: Number($("resident-rl-rollouts").value),
+          max_new_tokens: Number($("resident-rl-tokens").value),
+          learning_rate: Number($("resident-rl-lr").value),
+          loss_fn: "cispo",
+          loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
+          run_async: true,
         });
-      });
+        let job = response.train_job;
+        renderOutputPanel(
+          "resident-rl-output",
+          outputLabel,
+          `Collected ${response.rollout_count} rollout(s). Waiting for training to finish...`,
+          response,
+        );
+        raw(response);
+        const firstProgress = job.progress || {};
+        setResidentRlProgress(
+          progressOffset + (firstProgress.step || 0),
+          displayTotal,
+          job.status,
+          `training ${outputLabel}`,
+        );
+        while (!["succeeded", "failed", "canceled"].includes(job.status)) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          job = await sdk.job(job.job_id);
+          const progress = job.progress || {};
+          renderOutputPanel(
+            "resident-rl-output",
+            outputLabel,
+            `Training ${outputLabel}: ${progress.step || 0} / ${progress.total_steps || totalSteps}`,
+            { ...response, train_job: job },
+          );
+          setResidentRlProgress(
+            progressOffset + (progress.step || 0),
+            displayTotal,
+            job.status,
+            (progress.step || 0) < (progress.total_steps || totalSteps)
+              ? `GPU is training ${outputLabel}`
+              : `finalizing ${outputLabel}`,
+          );
+          await refresh();
+        }
+        const progress = job.progress || {};
+        setResidentRlProgress(progressOffset + (progress.step || 0), displayTotal, job.status, `${outputLabel} done`);
+        if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
+        return { ...response, train_job: job };
+      }
 
-      $("replay").addEventListener("click", run);
-      run();
+      async function runResidentRlBoth() {
+        setBusy("resident-rl-both", "Training Together...", "resident-rl-train-both");
+        try {
+          await refresh();
+          const steps = Number($("resident-rl-steps").value);
+          const atlasRun = resolveRun($("resident-rl-atlas-run").value);
+          const borealisRun = resolveRun($("resident-rl-borealis-run").value);
+          const rewardMode = $("resident-rl-reward-mode").value;
+          const rolloutsPerPrompt = Number($("resident-rl-rollouts").value);
+          const plannedRollouts = 2 * rolloutsPerPrompt;
+          syncRlPromptsFromSft();
+          setResidentRlPhase("before-RL eval", "sampling the current adapters");
+          const before = await sampleRlPair(atlasRun, borealisRun);
+          renderOutputPanel(
+            "resident-rl-output",
+            "Before RL",
+            [`Atlas: ${before.atlas}`, "", `Borealis: ${before.borealis}`].join("\n"),
+            before.raw,
+          );
+          let collectSeconds = 0;
+          setResidentRlPhase(
+            "collecting rollouts",
+            `${plannedRollouts} generation(s); training steps start after this finishes`,
+          );
+          const collectTimer = setInterval(() => {
+            collectSeconds += 1;
+            setResidentRlPhase(
+              "collecting rollouts",
+              `${plannedRollouts} generation(s), ${collectSeconds}s elapsed; no train job yet`,
+            );
+          }, 1000);
+          await nextPaint();
+          const stamp = versionStamp();
+          let response;
+          try {
+            response = await sdk.residentRlMixed({
+              runs: [
+                {
+                  run_id: atlasRun.run_id,
+                  prompts: [$("resident-rl-atlas-prompt").value.trim()],
+                  reward_mode: rewardMode,
+                  reward_contains: $("resident-rl-atlas-contains").value.trim(),
+                  save_name: `atlas-v${stamp}-rl`,
+                },
+                {
+                  run_id: borealisRun.run_id,
+                  prompts: [$("resident-rl-borealis-prompt").value.trim()],
+                  reward_mode: rewardMode,
+                  reward_contains: $("resident-rl-borealis-contains").value.trim(),
+                  save_name: `borealis-v${stamp}-rl`,
+                },
+              ],
+              reward_baseline: 0.0,
+              steps,
+              rollouts_per_prompt: rolloutsPerPrompt,
+              max_new_tokens: Number($("resident-rl-tokens").value),
+              learning_rate: Number($("resident-rl-lr").value),
+              microbatch_size: 1,
+              loss_fn: "cispo",
+              loss_fn_config: { clip_low_threshold: 0.8, clip_high_threshold: 1.2 },
+              run_async: true,
+            });
+          } finally {
+            clearInterval(collectTimer);
+          }
+          let job = response.train_job;
+          renderOutputPanel(
+            "resident-rl-output",
+            "Mixed Resident RL",
+            `Started train job ${job.job_id}. Collected ${response.rollout_count} rollout(s) across Atlas and Borealis. Training both adapters in one job...`,
+            response,
+          );
+          raw(response);
+          const firstProgress = job.progress || {};
+          setResidentRlProgress(
+            firstProgress.step || 0,
+            firstProgress.total_steps || steps,
+            job.status,
+            `train job ${job.job_id}`,
+          );
+          while (!["succeeded", "failed", "canceled"].includes(job.status)) {
+            const progress = job.progress || {};
+            setResidentRlProgress(
+              progress.step || 0,
+              progress.total_steps || steps,
+              job.status,
+              "one mixed RL train_steps job",
+            );
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            job = await sdk.job(job.job_id);
+            await refresh();
+          }
+          const progress = job.progress || {};
+          setResidentRlProgress(progress.step || steps, progress.total_steps || steps, job.status, "both adapters done");
+          if (job.status !== "succeeded") throw new Error(`Resident RL ${job.status}: ${job.error || "no details"}`);
+          const result = { ...response, train_job: job };
+          setResidentRlProgress(progress.step || steps, progress.total_steps || steps, "sampling", "after-RL eval");
+          const after = await sampleRlPair(atlasRun, borealisRun);
+          renderRewardReport(
+            result,
+            { [atlasRun.run_id]: "Atlas", [borealisRun.run_id]: "Borealis" },
+            before,
+            after,
+          );
+          raw(result);
+          toast("Mixed Resident RL finished for both adapters.");
+        } finally {
+          clearBusy();
+          await refresh();
+        }
+      }
+
+      async function runGuidedDemo() {
+        setBusy("guided-demo", "Running Demo...", "run-guided-demo");
+        state.demoEvents = [];
+        state.demoOutputs = null;
+        renderDemoComparison(null);
+        try {
+          applyDemoDefaults();
+          appendDemoEvent("Workspace", `Using ${workspace()}.`);
+          await refresh();
+          updateLastDemoEvent("done", `Using ${workspace()} with ${state.runs.length} visible run(s).`);
+
+          appendDemoEvent("Create adapters", "Creating Atlas and Borealis if they do not already exist.");
+          if (!atlas() || !borealis()) await createMissing();
+          await refresh();
+          updateLastDemoEvent("done", "Atlas and Borealis are ready.");
+
+          appendDemoEvent("SFT train", "Training both adapters toward their first target answers.");
+          await trainBoth();
+          await refresh();
+          updateLastDemoEvent("done", "SFT training finished for both adapters.");
+
+          appendDemoEvent("SFT sample", "Sampling both adapters on their own prompts.");
+          const [atlasSftRaw, borealisSftRaw] = await Promise.all([sample("atlas"), sample("borealis")]);
+          const sftOutputs = {
+            atlas: visibleText(atlasSftRaw, $("atlas-prompt").value),
+            borealis: visibleText(borealisSftRaw, $("borealis-prompt").value),
+          };
+          updateLastDemoEvent("done", "Both SFT samples are visible in the Results panel.");
+
+          appendDemoEvent("Mixed RL", "Running one resident RL job for Atlas and Borealis on the same prompts.");
+          await runResidentRlBoth();
+          await refresh();
+          updateLastDemoEvent("done", "Mixed resident RL finished.");
+
+          appendDemoEvent("After RL sample", "Sampling both adapters again to compare the behavior change.");
+          const atlasRun = resolveRun("atlas");
+          const borealisRun = resolveRun("borealis");
+          const rlSample = await sampleRlPair(atlasRun, borealisRun);
+          updateLastDemoEvent("done", "After-RL samples are ready.");
+
+          appendDemoEvent("Export ready", "Use Export LoRAs or Export RL LoRAs when you want artifacts.");
+          updateLastDemoEvent("done", "The demo is complete.");
+
+          state.demoOutputs = {
+            sft: sftOutputs,
+            rl: { atlas: rlSample.atlas, borealis: rlSample.borealis },
+            raw: { atlas_sft: atlasSftRaw, borealis_sft: borealisSftRaw, rl_sample: rlSample.raw },
+          };
+          renderDemoComparison(state.demoOutputs);
+          toast("Guided demo finished.");
+        } finally {
+          clearBusy();
+          await refresh();
+        }
+      }
+
+      async function sampleResidentRlBoth() {
+        setBusy("resident-sample-both", "Sampling Both...", "resident-rl-sample-both");
+        try {
+          await refresh();
+          const atlasRun = resolveRun($("resident-rl-atlas-run").value);
+          const borealisRun = resolveRun($("resident-rl-borealis-run").value);
+          const result = await sampleRlPair(atlasRun, borealisRun);
+          renderOutputPanel(
+            "resident-rl-output",
+            "Preview only - no RL training started",
+            [
+              "This button only samples the current adapters. To update weights, click Train RL + Compare Both.",
+              "",
+              `Atlas output\n${result.atlas}`,
+              "",
+              `Borealis output\n${result.borealis}`,
+            ].join("\n"),
+            result.raw,
+          );
+          raw(result.raw);
+          toast("Previewed both resident runs. No RL job was started.");
+        } finally {
+          clearBusy();
+          await refresh();
+        }
+      }
+
+      async function createMissing() {
+        if (!workspace()) {
+          toast("Type a workspace first.", true);
+          $("workspace").focus();
+          return;
+        }
+        setBusy("create", "Creating...", "create-run", "step-2");
+        const created = [];
+        try {
+          if (!atlas()) created.push(await sdk.createTrainingClient("atlas"));
+          if (!borealis()) created.push(await sdk.createTrainingClient("borealis"));
+          raw({ created });
+          toast(created.length ? "Created Atlas and/or Borealis." : "Both LoRAs already exist.");
+          await refresh();
+        } finally {
+          clearBusy();
+        }
+      }
+
+      async function sftDatum(prompt, completion) {
+        return sdk.sftDatum(prompt, completion, Number($("max-tokens").value), $("use-chat-template").checked);
+      }
+
+      async function batches() {
+        const a = atlas();
+        const b = borealis();
+        if (!a || !b) throw new Error("Create both LoRAs first.");
+        const [aDatum, bDatum] = await Promise.all([
+          sftDatum($("atlas-prompt").value, $("atlas-answer").value),
+          sftDatum($("borealis-prompt").value, $("borealis-answer").value),
+        ]);
+        return { [a.run_id]: [aDatum], [b.run_id]: [bDatum] };
+      }
+
+      async function trainBoth() {
+        setBusy("train", "Training...", "train-both", "step-3");
+        state.activeTrainJobId = null;
+        try {
+          const totalSteps = Number($("steps").value);
+          setTrainProgress(0, totalSteps, "preparing", "tokenizing the two demo datasets");
+          await nextPaint();
+          const trainBatches = await batches();
+          setTrainProgress(0, totalSteps, "submitting", "sending async training job");
+          await nextPaint();
+          const stamp = versionStamp();
+          const submitted = await sdk.trainSteps(trainBatches, totalSteps, Number($("lr").value), {
+            [atlas().run_id]: `atlas-v${stamp}-sft`,
+            [borealis().run_id]: `borealis-v${stamp}-sft`,
+          });
+          let job = submitted.job;
+          state.activeTrainJobId = job.job_id;
+          raw(submitted);
+          while (!["succeeded", "failed", "canceled"].includes(job.status)) {
+            const progress = job.progress || {};
+            const step = progress.step || 0;
+            const total = progress.total_steps || totalSteps;
+            setTrainProgress(step, total, job.status, step < total ? "GPU is working on the current step" : "finalizing");
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            state.runs = await sdk.runs();
+            job = await sdk.job(job.job_id);
+            render();
+          }
+          const progress = job.progress || {};
+          setTrainProgress(progress.step || 0, progress.total_steps || totalSteps, job.status, "done");
+          raw(job);
+          if (job.status !== "succeeded") throw new Error(`Training ${job.status}: ${job.error || "no details"}`);
+          toast("Training finished.");
+        } finally {
+          state.activeTrainJobId = null;
+          clearBusy();
+          await refresh();
+          setTimeout(hideTrainProgress, 1800);
+        }
+      }
+
+      function visibleText(result, prompt) {
+        if (!result.output || !result.output.text) return JSON.stringify(result, null, 2);
+        const text = result.output.text;
+        let generated = text.includes(prompt) ? text.slice(text.lastIndexOf(prompt) + prompt.length).trimStart() : text;
+        generated = generated
+          .replace(
+            /^(<\|im_end\|>|<\|im_start\|>|<assistant>|<think><\/think>|<think>|<\/think>|assistant|Assistant|:|\s)+/g,
+            "",
+          )
+          .trimStart();
+        if ($("sample-first-sentence").checked) {
+          const match = generated.match(/^([\s\S]*?[.!?])(?:\s|$)/);
+          if (match) generated = match[1];
+        }
+        const lines = generated
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        if (lines.length > 1 && lines.every((line) => line === lines[0])) return lines[0];
+        return generated;
+      }
+
+      async function sample(which) {
+        const run = which === "atlas" ? atlas() : borealis();
+        if (!run) throw new Error(`Create ${which} first.`);
+        const outputId = `${which}-output`;
+        const prompt = which === "atlas" ? $("atlas-prompt").value : $("borealis-prompt").value;
+        const result = await sdk.sample(
+          run.run_id,
+          prompt,
+          Number($("sample-tokens").value),
+          $("use-chat-template").checked,
+        );
+        $(outputId).innerHTML =
+          `<h3>${which[0].toUpperCase() + which.slice(1)} output</h3>${visibleText(result, prompt)}`;
+        return result;
+      }
+
+      async function sampleBothSft() {
+        setBusy("sample-both", "Sampling Both...", "sample-both", "step-4");
+        try {
+          const [atlasResult, borealisResult] = await Promise.all([sample("atlas"), sample("borealis")]);
+          raw({ atlas: atlasResult, borealis: borealisResult });
+          toast("Sampled both adapters.");
+          await refresh();
+        } finally {
+          clearBusy();
+        }
+      }
+
+      async function saveBoth() {
+        setBusy("save", "Saving...", "save-both");
+        const results = [];
+        try {
+          if (atlas()) results.push(await sdk.save(atlas().run_id, "atlas-ui"));
+          if (borealis()) results.push(await sdk.save(borealis().run_id, "borealis-ui"));
+          raw({ saved: results });
+          toast("Saved both LoRAs.");
+          await refresh();
+        } finally {
+          clearBusy();
+        }
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      async function exportBoth() {
+        setBusy("export", "Exporting...", "export-both");
+        const exported = [];
+        try {
+          if (atlas()) {
+            const blob = await sdk.export(atlas().run_id, "atlas-ui");
+            downloadBlob(blob, "atlas-ui.zip");
+            exported.push({ run_id: atlas().run_id, file: "atlas-ui.zip" });
+          }
+          if (borealis()) {
+            const blob = await sdk.export(borealis().run_id, "borealis-ui");
+            downloadBlob(blob, "borealis-ui.zip");
+            exported.push({ run_id: borealis().run_id, file: "borealis-ui.zip" });
+          }
+          raw({ exported });
+          toast("LoRA exports downloaded.");
+          await refresh();
+        } finally {
+          clearBusy();
+        }
+      }
+
+      async function exportRlBoth() {
+        setBusy("rl-export", "Exporting RL LoRAs...", "resident-rl-export-both");
+        const stamp = versionStamp();
+        const exported = [];
+        try {
+          const atlasRun = atlas();
+          const borealisRun = borealis();
+          if (atlasRun) {
+            const name = `atlas-v${stamp}-rl-export`;
+            const blob = await sdk.export(atlasRun.run_id, name);
+            downloadBlob(blob, `${name}.zip`);
+            exported.push({ run_id: atlasRun.run_id, file: `${name}.zip` });
+          }
+          if (borealisRun) {
+            const name = `borealis-v${stamp}-rl-export`;
+            const blob = await sdk.export(borealisRun.run_id, name);
+            downloadBlob(blob, `${name}.zip`);
+            exported.push({ run_id: borealisRun.run_id, file: `${name}.zip` });
+          }
+          raw({ exported });
+          toast("RL LoRA exports downloaded.");
+          await refresh();
+        } finally {
+          clearBusy();
+        }
+      }
+
+      async function detachBoth() {
+        setBusy("detach", "Detaching...", "detach-both");
+        const results = [];
+        try {
+          if (atlas()) results.push(await sdk.detach(atlas().run_id));
+          if (borealis()) results.push(await sdk.detach(borealis().run_id));
+          raw({ detached: results });
+          toast("Detached both LoRAs.");
+          await refresh();
+        } finally {
+          clearBusy();
+        }
+      }
+
+      async function handle(fn) {
+        try {
+          await fn();
+        } catch (error) {
+          toast(error.message, true);
+          raw({ error: error.message });
+        }
+      }
+
+      $("refresh").onclick = () => handle(refresh);
+      $("new-workspace").onclick = () => {
+        $("workspace").value = `tenant-${Date.now().toString().slice(-5)}`;
+        $("atlas-output").innerHTML = "<h3>Atlas output</h3>Not sampled yet.";
+        $("borealis-output").innerHTML = "<h3>Borealis output</h3>Not sampled yet.";
+        handle(refresh);
+      };
+      $("workspace").onchange = () => handle(refresh);
+      $("atlas-prompt").oninput = syncRlPromptsFromSft;
+      $("borealis-prompt").oninput = syncRlPromptsFromSft;
+      $("create-run").onclick = () => handle(createMissing);
+      $("train-both").onclick = () => handle(trainBoth);
+      $("sample-both").onclick = () => handle(sampleBothSft);
+      $("save-both").onclick = () => handle(saveBoth);
+      $("export-both").onclick = () => handle(exportBoth);
+      $("detach-both").onclick = () => handle(detachBoth);
+      document.querySelectorAll("[data-mode]").forEach((button) => {
+        button.onclick = () => setMode(button.dataset.mode);
+      });
+      document.querySelectorAll("[data-mode-jump]").forEach((button) => {
+        button.onclick = () => setMode(button.dataset.modeJump);
+      });
+      $("resident-rl-train-both").onclick = () => handle(runResidentRlBoth);
+      $("resident-rl-sample-both").onclick = () => handle(sampleResidentRlBoth);
+      $("resident-rl-export-both").onclick = () => handle(exportRlBoth);
+      $("run-guided-demo").onclick = () => handle(runGuidedDemo);
+      $("demo-defaults").onclick = applyDemoDefaults;
+      $("strong-rl-defaults").onclick = applyStrongRlDefaults;
+      $("reset-demo-log").onclick = () => {
+        state.demoEvents = [];
+        state.demoOutputs = null;
+        renderDemoTimeline();
+        renderDemoComparison(null);
+      };
+
+      applyDemoDefaults();
+      setMode("flywheel");
+      syncRlPromptsFromSft();
+      renderDemoTimeline();
+      refresh().catch((error) => toast(error.message, true));
+      setInterval(() => refresh().catch(() => {}), 5000);
     </script>
   </body>
 </html>
